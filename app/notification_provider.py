@@ -70,9 +70,9 @@ def format_email_html(digest: dict) -> str:
         reg_html = "<h3 style='color:#FF7900'>&#x26A0; Performance Regressions</h3><ul>"
         for reg in regressions:
             reg_html += (
-                f"<li><strong>{reg.get('workflow_name')}</strong> is "
-                f"{reg.get('pct_slower', 0):.1f}% slower than 7-day avg "
-                f"({reg.get('current_avg_ms', 0):,}ms vs {reg.get('historical_avg_ms', 0):,}ms avg)</li>"
+                f"<li><strong>{reg.get('workflow')}</strong> is "
+                f"{reg.get('pct_change', 0)}% slower than yesterday "
+                f"({reg.get('today_ms', 0):,}ms today vs {reg.get('yesterday_ms', 0):,}ms yesterday)</li>"
             )
         reg_html += "</ul>"
 

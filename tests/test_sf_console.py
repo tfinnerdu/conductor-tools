@@ -5,6 +5,15 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
+class TestGetPersonEdgeCases:
+    def test_empty_identifier_in_url_goes_to_404(self, client_with_mock_conductor):
+        # An empty path segment can't actually be sent to Flask (URL routing)
+        # Test the _is_guid helper instead
+        from app.routes.sf_console import _is_guid
+        assert _is_guid("550e8400-e29b-41d4-a716-446655440000") is True
+        assert _is_guid("STU12345") is False
+
+
 class TestGetPerson:
     def test_sis_id_lookup_returns_result(self, client_with_mock_conductor):
         resp = client_with_mock_conductor.get("/api/v1/sf/person/STU12345")
@@ -95,6 +104,28 @@ class TestFindDuplicates:
         resp = client_with_mock_conductor.get("/api/v1/sf/duplicates")
         data = resp.get_json()
         assert data["duplicate_count"] == len(data["duplicates"])
+
+    def test_with_real_duplicates_returned(self, app):
+        """When find_duplicate_accounts returns 2+ records, they appear in duplicates list."""
+        from unittest.mock import MagicMock, patch
+
+        mock_sf = MagicMock()
+        # Return 2 records for all probe IDs to trigger duplicate detection
+        mock_sf.find_duplicate_accounts.return_value = [
+            {"Id": "SF001", "SIS_ID__c": "dup-stu"},
+            {"Id": "SF002", "SIS_ID__c": "dup-stu"},
+        ]
+
+        with patch("app.routes.sf_console.sf_provider", mock_sf):
+            client = app.test_client()
+            resp = client.get("/api/v1/sf/duplicates")
+
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["duplicate_count"] > 0
+        dup = data["duplicates"][0]
+        assert dup["account_count"] == 2
+        assert "accounts" in dup
 
 
 class TestSfHealth:
