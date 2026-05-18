@@ -1,0 +1,364 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<!-- ============================================================
+     SEARCH TAB
+     ============================================================ -->
+<div id="panel-search" class="tab-panel active">
+
+    <div class="grid-2" style="align-items:start">
+
+        <!-- Search controls -->
+        <div>
+            <div class="card">
+                <div class="card__title">Workflow Search</div>
+
+                <div class="form-group">
+                    <label class="form-label">Workflow Type</label>
+                    <select id="search-workflow-type" class="form-control">
+                        <option value="">-- All Workflows --</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Status</label>
+                    <div class="radio-group">
+                        <label><input type="radio" name="search-status" value="" checked /> All</label>
+                        <label><input type="radio" name="search-status" value="COMPLETED" /> Completed</label>
+                        <label><input type="radio" name="search-status" value="FAILED" /> Failed</label>
+                        <label><input type="radio" name="search-status" value="RUNNING" /> Running</label>
+                        <label><input type="radio" name="search-status" value="PAUSED" /> Paused</label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Free Text</label>
+                    <input type="text" id="search-free-text" class="form-control" placeholder="Keyword search..." />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Input Field Filters</label>
+                    <div id="filter-rows"></div>
+                    <button id="add-filter-btn" class="btn btn-outline btn-sm mt-1">+ Add Filter</button>
+                </div>
+
+                <div class="toolbar">
+                    <button id="search-btn" class="btn btn-primary">Search</button>
+                    <button id="search-export-btn" class="btn btn-outline">Export CSV</button>
+                    <button id="save-search-btn" class="btn btn-outline btn-sm">Save Search</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Saved searches sidebar -->
+        <div>
+            <div class="card">
+                <div class="card__title">Saved Searches</div>
+                <div id="saved-searches-list">
+                    <p class="text-muted font-sm">Loading...</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Results -->
+    <div class="card">
+        <div class="d-flex align-center gap-1 mb-1">
+            <div class="card__title" style="margin:0;border:none;padding:0">Results</div>
+            <span id="search-result-count" class="text-muted font-sm" style="margin-left:auto"></span>
+        </div>
+        <div id="search-status-summary" class="mb-1"></div>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Workflow ID</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Correlation ID</th>
+                        <th>Start Time</th>
+                        <th>End Time</th>
+                        <th>Version</th>
+                    </tr>
+                </thead>
+                <tbody id="search-results-body">
+                    <tr>
+                        <td colspan="7" class="text-center text-muted" style="padding:2rem">
+                            Use the form above to search workflows.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div><!-- /panel-search -->
+
+
+<!-- ============================================================
+     JQ LAB TAB
+     ============================================================ -->
+<div id="panel-jq-lab" class="tab-panel">
+
+    <div class="split-layout">
+
+        <!-- Left: Input -->
+        <div>
+            <div class="card">
+                <div class="card__title">Input JSON</div>
+                <textarea id="jq-input" class="form-control" rows="12"
+                    placeholder='{"key": "value", "items": [1, 2, 3]}'></textarea>
+
+                <div class="mt-2">
+                    <label class="form-label">Load from Execution</label>
+                    <div class="d-flex gap-1">
+                        <input type="text" id="jq-execution-id" class="form-control"
+                            placeholder="Workflow execution ID" />
+                        <input type="text" id="jq-task-ref" class="form-control"
+                            placeholder="Task ref (optional)" style="max-width:160px" />
+                        <button id="jq-load-btn" class="btn btn-outline btn-sm" style="white-space:nowrap">
+                            Load Output
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Expression and result -->
+        <div>
+            <div class="card">
+                <div class="card__title">JQ Expression</div>
+                <textarea id="jq-expression" class="form-control" rows="5"
+                    placeholder=".items[] | select(.status == &quot;COMPLETED&quot;)"></textarea>
+
+                <div class="toolbar mt-1">
+                    <button id="jq-evaluate-btn" class="btn btn-primary">Evaluate</button>
+                    <button id="jq-copy-conductor-btn" class="btn btn-outline">Copy as Conductor Task</button>
+                    <button id="jq-save-btn" class="btn btn-outline btn-sm">Save to Library</button>
+                </div>
+
+                <div id="jq-error" class="d-none mt-1"
+                    style="background:#ffeef0;color:#b31d28;padding:0.5rem;border-radius:4px;font-size:0.8rem"></div>
+
+                <div class="mt-1">
+                    <label class="form-label">Result</label>
+                    <pre id="jq-result" class="code-block" style="min-height:80px"></pre>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Expression library -->
+    <div class="card">
+        <div class="card__title">Expression Library</div>
+        <div id="jq-expression-library">
+            <p class="text-muted font-sm">Loading expressions...</p>
+        </div>
+    </div>
+
+</div><!-- /panel-jq-lab -->
+
+
+<!-- ============================================================
+     WORKERS TAB
+     ============================================================ -->
+<div id="panel-workers" class="tab-panel">
+
+    <div class="card">
+        <div class="d-flex align-center gap-1">
+            <div class="card__title" style="margin:0;border:none;padding:0">Worker Registry</div>
+            <span id="workers-last-refreshed" class="text-muted font-sm" style="margin-left:auto"></span>
+            <button id="workers-refresh-btn" class="btn btn-outline btn-sm">Refresh Now</button>
+        </div>
+    </div>
+
+    <div id="workers-summary" class="mb-2"></div>
+
+    <div class="card">
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Task Type</th>
+                        <th>Workers</th>
+                        <th>Last Poll</th>
+                        <th>Queue Depth</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="workers-tbody">
+                    <tr>
+                        <td colspan="5" class="text-center text-muted" style="padding:2rem">
+                            <span class="spinner"></span> Loading worker registry...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Performance drill-down panel -->
+    <div id="worker-perf-panel" class="card d-none">
+        <div class="card__title">
+            Performance: <span id="worker-perf-task-type"></span>
+        </div>
+        <div id="worker-perf-content"></div>
+    </div>
+
+</div><!-- /panel-workers -->
+
+
+<!-- ============================================================
+     MIGRATIONS TAB
+     ============================================================ -->
+<div id="panel-migrations" class="tab-panel">
+
+    <div class="grid-2" style="align-items:start">
+
+        <!-- Batch list -->
+        <div>
+            <div class="card">
+                <div class="card__title">Migration Batches</div>
+                <div id="batches-list">
+                    <p class="text-muted font-sm">Loading batches...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- New batch form -->
+        <div>
+            <div class="card">
+                <div class="card__title">New Batch</div>
+                <form id="create-batch-form">
+                    <div class="form-group">
+                        <label class="form-label">Batch Name</label>
+                        <input type="text" id="batch-name" class="form-control"
+                            placeholder="e.g. Student Records Migration Q1" required />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Workflow Name</label>
+                        <select id="batch-workflow-name" class="form-control" required>
+                            <option value="">-- Select Workflow --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Correlation ID Prefix</label>
+                        <input type="text" id="batch-correlation-prefix" class="form-control"
+                            placeholder="e.g. migration-q1-2024-" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Expected Count</label>
+                        <input type="number" id="batch-total-expected" class="form-control"
+                            placeholder="0" min="0" value="0" />
+                    </div>
+                    <button type="submit" id="create-batch-btn" class="btn btn-primary">Create Batch</button>
+                </form>
+            </div>
+        </div>
+
+    </div>
+
+</div><!-- /panel-migrations -->
+
+
+<!-- ============================================================
+     DIFF TAB
+     ============================================================ -->
+<div id="panel-diff" class="tab-panel">
+
+    <div class="card">
+        <div class="card__title">Workflow Version Diff</div>
+
+        <div class="grid-3" style="grid-template-columns:2fr 1fr 1fr;gap:1rem;margin-bottom:1rem">
+            <div class="form-group" style="margin:0">
+                <label class="form-label">Workflow</label>
+                <select id="diff-workflow-name" class="form-control">
+                    <option value="">-- Select Workflow --</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin:0">
+                <label class="form-label">Version A (base)</label>
+                <select id="diff-version-a" class="form-control"></select>
+            </div>
+            <div class="form-group" style="margin:0">
+                <label class="form-label">Version B (compare)</label>
+                <select id="diff-version-b" class="form-control"></select>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Diff Mode</label>
+            <div class="radio-group">
+                <label><input type="radio" name="diff-mode" value="full" checked /> Full JSON</label>
+                <label><input type="radio" name="diff-mode" value="tasks" /> Tasks Only</label>
+                <label><input type="radio" name="diff-mode" value="significant" /> Significant Changes</label>
+            </div>
+        </div>
+
+        <div class="toolbar">
+            <button id="diff-run-btn" class="btn btn-primary">Compare</button>
+            <span id="diff-summary" class="d-flex gap-1 align-center"></span>
+        </div>
+
+        <div id="diff-result" style="margin-top:1rem"></div>
+    </div>
+
+    <div class="grid-2">
+
+        <!-- Dependency map -->
+        <div class="card">
+            <div class="card__title">Dependency Map</div>
+            <button id="dependency-map-btn" class="btn btn-outline btn-sm mb-1">Load Dependency Map</button>
+            <div id="dependency-map-content"></div>
+        </div>
+
+        <!-- Impact analysis -->
+        <div class="card">
+            <div class="card__title">Impact Analysis</div>
+            <div class="form-group">
+                <label class="form-label">Task Type</label>
+                <div class="d-flex gap-1">
+                    <input type="text" id="impact-task-type" class="form-control"
+                        placeholder="e.g. validate_order" />
+                    <button id="impact-run-btn" class="btn btn-secondary btn-sm" style="white-space:nowrap">
+                        Analyze Impact
+                    </button>
+                </div>
+            </div>
+            <div id="impact-result"></div>
+        </div>
+
+    </div>
+
+</div><!-- /panel-diff -->
+
+
+<!-- ============================================================
+     TRACES TAB (placeholder)
+     ============================================================ -->
+<div id="panel-traces" class="tab-panel">
+    <div class="card">
+        <div class="card__title">Traces</div>
+        <p class="text-muted">Distributed trace visualization coming in Phase 2.</p>
+        <p class="text-muted font-sm">This tab will show end-to-end execution traces correlated across workflow
+        instances using Conductor task IDs.</p>
+    </div>
+</div>
+
+
+<!-- ============================================================
+     DIGEST TAB (placeholder)
+     ============================================================ -->
+<div id="panel-digest" class="tab-panel">
+    <div class="card">
+        <div class="card__title">Digest</div>
+        <p class="text-muted">Daily digest / scheduled reporting coming in Phase 2.</p>
+        <p class="text-muted font-sm">This tab will display a configurable daily summary of workflow activity,
+        failure trends, and worker health metrics delivered via email or Slack.</p>
+    </div>
+</div>
+
+{% endblock %}

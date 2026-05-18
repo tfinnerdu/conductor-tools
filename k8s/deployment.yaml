@@ -1,0 +1,137 @@
+---
+# Conductor Companion — Kubernetes manifests
+# Namespace: prod
+# Host: du-int.doane.edu
+# Path: /prod/conductor-companion (Traefik strips prefix; Flask sees clean paths)
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: prod
+
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: prod-conductor-companion-prefix
+  namespace: prod
+spec:
+  stripPrefix:
+    prefixes:
+      - /prod/conductor-companion
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: conductor-companion
+  namespace: prod
+  labels:
+    app: conductor-companion
+    version: "1.0.0"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: conductor-companion
+  template:
+    metadata:
+      labels:
+        app: conductor-companion
+        version: "1.0.0"
+    spec:
+      imagePullSecrets:
+        - name: regcred
+      containers:
+        - name: conductor-companion
+          image: doaneu/conductor-companion:1.0.0
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 5000
+              protocol: TCP
+          env:
+            - name: CONDUCTOR_URL
+              valueFrom:
+                secretKeyRef:
+                  name: conductor-companion-secrets
+                  key: CONDUCTOR_URL
+            - name: CONDUCTOR_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: conductor-companion-secrets
+                  key: CONDUCTOR_API_KEY
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: conductor-companion-secrets
+                  key: DATABASE_URL
+            - name: FLASK_DEBUG
+              value: "0"
+            - name: SERVICE_VERSION
+              value: "1.0.0"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 20
+            periodSeconds: 30
+            failureThreshold: 5
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: conductor-companion
+  namespace: prod
+  labels:
+    app: conductor-companion
+spec:
+  selector:
+    app: conductor-companion
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 5000
+  type: ClusterIP
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: conductor-companion
+  namespace: prod
+  annotations:
+    kubernetes.io/ingress.class: traefik
+    cert-manager.io/cluster-issuer: prod-letsencrypt
+    traefik.ingress.kubernetes.io/router.middlewares: prod-prod-conductor-companion-prefix@kubernetescrd
+spec:
+  tls:
+    - hosts:
+        - du-int.doane.edu
+      secretName: wildcard-doane-tls
+  rules:
+    - host: du-int.doane.edu
+      http:
+        paths:
+          - path: /prod/conductor-companion
+            pathType: Prefix
+            backend:
+              service:
+                name: conductor-companion
+                port:
+                  number: 80

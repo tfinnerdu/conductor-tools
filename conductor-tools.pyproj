@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}</ProjectGuid>
+    <ProjectHome>.</ProjectHome>
+    <StartupFile>run.py</StartupFile>
+    <SearchPath>
+    </SearchPath>
+    <WorkingDirectory>.</WorkingDirectory>
+    <OutputPath>.</OutputPath>
+    <ProjectTypeGuids>{888888A0-9F3D-457C-B088-3A5042F75D52}</ProjectTypeGuids>
+    <LaunchProvider>Standard Python launcher</LaunchProvider>
+    <InterpreterId>Global|PythonCore|3.11</InterpreterId>
+    <Name>conductor-tools</Name>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+    <DebugSymbols>true</DebugSymbols>
+    <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+    <DebugSymbols>true</DebugSymbols>
+    <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="run.py" />
+    <Compile Include="app\__init__.py" />
+    <Compile Include="app\conductor_client.py" />
+    <Compile Include="app\routes\__init__.py" />
+    <Compile Include="app\routes\health.py" />
+    <Compile Include="app\routes\search.py" />
+    <Compile Include="app\routes\jq_lab.py" />
+    <Compile Include="app\routes\workers.py" />
+    <Compile Include="app\routes\batches.py" />
+    <Compile Include="app\routes\diff.py" />
+    <Compile Include="app\routes\secrets.py" />
+    <Compile Include="app\models\__init__.py" />
+    <Compile Include="app\models\saved_search.py" />
+    <Compile Include="app\models\migration_batch.py" />
+    <Compile Include="app\models\jq_expression.py" />
+    <Compile Include="tests\__init__.py" />
+    <Compile Include="tests\conftest.py" />
+    <Compile Include="tests\test_conductor_client.py" />
+    <Compile Include="tests\test_search.py" />
+    <Compile Include="tests\test_jq_lab.py" />
+    <Compile Include="tests\test_workers.py" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include=".env.example" />
+    <Content Include=".gitignore" />
+    <Content Include="requirements.txt" />
+    <Content Include="start-local.ps1" />
+    <Content Include="app\static\css\main.css" />
+    <Content Include="app\static\js\app.js" />
+    <Content Include="app\static\js\search.js" />
+    <Content Include="app\static\js\jq_lab.js" />
+    <Content Include="app\static\js\workers.js" />
+    <Content Include="app\static\js\migrations.js" />
+    <Content Include="app\static\js\diff.js" />
+    <Content Include="app\templates\base.html" />
+    <Content Include="app\templates\index.html" />
+    <Content Include="db\init.sql" />
+    <Content Include="k8s\deployment.yaml" />
+    <Content Include="docs\bashCommands.txt" />
+    <Content Include="docs\e2e-test-walkthrough.md" />
+    <Content Include="docs\user-guide.md" />
+  </ItemGroup>
+  <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
+</Project>

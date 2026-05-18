@@ -1,0 +1,147 @@
+# Conductor Companion -- Bash/Shell Commands Reference
+# Use these commands for development, testing, and deployment.
+
+# -------------------------------------------------------
+# Local Development
+# -------------------------------------------------------
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Copy and configure environment
+cp .env.example .env
+
+# Start the app (unbuffered output)
+python -u run.py
+
+# Start using PowerShell startup script
+./start-local.ps1
+
+# -------------------------------------------------------
+# Health check
+# -------------------------------------------------------
+
+curl.exe -s http://localhost:5000/health | python -m json.tool
+
+# -------------------------------------------------------
+# Database setup (PostgreSQL)
+# -------------------------------------------------------
+
+# Create the database and user
+psql -U postgres -c "CREATE DATABASE conductor_companion;"
+psql -U postgres -c "CREATE USER conductor_companion WITH ENCRYPTED PASSWORD 'password';"
+psql -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE conductor_companion TO conductor_companion;"
+
+# Run the init SQL
+psql -U conductor_companion -d conductor_companion -f db/init.sql
+
+# -------------------------------------------------------
+# Running tests
+# -------------------------------------------------------
+
+# Run all tests
+pytest tests/ -v
+
+# Run a specific test file
+pytest tests/test_workers.py -v
+
+# Run with coverage
+pytest tests/ --cov=app --cov-report=term-missing
+
+# -------------------------------------------------------
+# API smoke tests (curl.exe for Windows)
+# -------------------------------------------------------
+
+# Advanced search
+curl.exe -s -X POST http://localhost:5000/api/v1/search/advanced \
+  -H "Content-Type: application/json" \
+  -d "{\"workflowType\":\"order_fulfillment\",\"status\":\"FAILED\"}"
+
+# List saved searches
+curl.exe -s http://localhost:5000/api/v1/search/saved
+
+# JQ evaluate
+curl.exe -s -X POST http://localhost:5000/api/v1/jq/evaluate \
+  -H "Content-Type: application/json" \
+  -d "{\"expression\":\".items | length\",\"input\":{\"items\":[1,2,3]}}"
+
+# JQ format as conductor task
+curl.exe -s -X POST http://localhost:5000/api/v1/jq/format-as-conductor-task \
+  -H "Content-Type: application/json" \
+  -d "{\"expression\":\".output.result\",\"taskRef\":\"extract_result_ref\"}"
+
+# Worker status
+curl.exe -s http://localhost:5000/api/v1/workers/status
+
+# Worker performance
+curl.exe -s http://localhost:5000/api/v1/workers/validate_order/performance
+
+# List batches
+curl.exe -s http://localhost:5000/api/v1/batches
+
+# Create a batch
+curl.exe -s -X POST http://localhost:5000/api/v1/batches \
+  -H "Content-Type: application/json" \
+  -d "{\"name\":\"Test Batch\",\"workflowName\":\"order_fulfillment\",\"totalExpected\":100}"
+
+# Diff workflow versions
+curl.exe -s http://localhost:5000/api/v1/diff/workflows
+
+curl.exe -s -X POST http://localhost:5000/api/v1/diff/workflow \
+  -H "Content-Type: application/json" \
+  -d "{\"workflowName\":\"order_fulfillment\",\"versionA\":1,\"versionB\":2,\"mode\":\"full\"}"
+
+# Dependency map
+curl.exe -s http://localhost:5000/api/v1/diff/dependency-map
+
+# Impact analysis
+curl.exe -s -X POST http://localhost:5000/api/v1/diff/impact \
+  -H "Content-Type: application/json" \
+  -d "{\"taskType\":\"validate_order\"}"
+
+# List secrets
+curl.exe -s http://localhost:5000/api/v1/secrets
+
+# Set a secret
+curl.exe -s -X POST http://localhost:5000/api/v1/secrets/MY_SECRET \
+  -H "Content-Type: application/json" \
+  -d "{\"value\":\"my-secret-value\"}"
+
+# Secret usages
+curl.exe -s http://localhost:5000/api/v1/secrets/PAYMENT_API_KEY/usages
+
+# -------------------------------------------------------
+# Docker
+# -------------------------------------------------------
+
+# Build image
+docker build -t doaneu/conductor-companion:1.0.0 .
+
+# Run container
+docker run -p 5000:5000 \
+  -e CONDUCTOR_URL=http://conductor:8080 \
+  -e DATABASE_URL=postgresql://user:pass@db:5432/conductor_companion \
+  doaneu/conductor-companion:1.0.0
+
+# -------------------------------------------------------
+# Kubernetes
+# -------------------------------------------------------
+
+# Create the secret (replace values)
+kubectl create secret generic conductor-companion-secrets \
+  --namespace=prod \
+  --from-literal=CONDUCTOR_URL=http://orkes-conductor:8080 \
+  --from-literal=CONDUCTOR_API_KEY=your-api-key-here \
+  --from-literal=DATABASE_URL=postgresql://conductor_companion:password@postgres:5432/conductor_companion
+
+# Deploy
+kubectl apply -f k8s/deployment.yaml
+
+# Check rollout status
+kubectl rollout status deployment/conductor-companion -n prod
+
+# View logs
+kubectl logs -n prod -l app=conductor-companion --tail=100 -f
+
+# Port-forward for local testing against cluster
+kubectl port-forward -n prod svc/conductor-companion 5000:80
