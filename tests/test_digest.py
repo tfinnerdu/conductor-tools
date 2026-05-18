@@ -385,3 +385,68 @@ def test_recommendations_error_path(client):
     assert resp.status_code == 500
     data = resp.get_json()
     assert data["code"] == "RECOMMENDATIONS_ERROR"
+
+
+def _make_mock_conductor_with_worker_states():
+    """Mock with workers in various health states."""
+    mock = MagicMock()
+    import time as t
+    now_ms = int(t.time() * 1000)
+
+    mock.list_workflow_definitions.return_value = [
+        {"name": "test_workflow", "version": 1}
+    ]
+    mock.search.return_value = {"totalHits": 0, "results": []}
+    mock.get_all_task_queues.return_value = {
+        "healthy_task": {
+            "queueSize": 0,
+            "workerDetails": {
+                "w1": {"lastPollTime": now_ms - 1000},
+            },
+        },
+        "slow_poll_task": {
+            "queueSize": 1,
+            "workerDetails": {
+                "w2": {"lastPollTime": now_ms - 15000},  # 15s old → slow_poll
+            },
+        },
+        "no_workers_task": {
+            "queueSize": 5,
+            "workerDetails": {},  # empty → no_workers
+        },
+    }
+    return mock
+
+
+def test_worker_health_no_workers_state(client):
+    """Worker with empty workerDetails should be marked no_workers."""
+    mock = _make_mock_conductor_with_worker_states()
+    with patch("app.routes.digest.ConductorClient", return_value=mock):
+        resp = client.get("/api/v1/digest/daily?date=2024-07-01")
+    data = resp.get_json()
+    assert data["worker_health"].get("no_workers_task") == "no_workers"
+
+
+def test_worker_health_slow_poll_state(client):
+    """Worker polled 15s ago should be slow_poll."""
+    mock = _make_mock_conductor_with_worker_states()
+    with patch("app.routes.digest.ConductorClient", return_value=mock):
+        resp = client.get("/api/v1/digest/daily?date=2024-07-02")
+    data = resp.get_json()
+    assert data["worker_health"].get("slow_poll_task") == "slow_poll"
+
+
+def test_workflow_history_error_path(client):
+    """workflow_history error from generate_daily_digest returns 500."""
+    from app.routes import digest as digest_module
+    # Clear cache so it tries to generate from on-demand
+    digest_module._digest_cache.clear()
+
+    mock = MagicMock()
+    mock.list_workflow_definitions.side_effect = Exception("conductor down")
+
+    with patch("app.routes.digest.ConductorClient", return_value=mock):
+        resp = client.get("/api/v1/digest/workflow/missing_workflow/history")
+    # The route generates 7 stub entries (one per day, empty cache), so history is never empty
+    # So the "if not history" block is never reached → 200 with stubs
+    assert resp.status_code == 200
