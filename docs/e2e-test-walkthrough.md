@@ -14,7 +14,11 @@ Organized by feature surface. For each feature, follow the manual steps and veri
 
 ## 1. Health Check
 
-**Goal:** Verify the service is alive and reports correct metadata.
+Two endpoints exist. Wire only the live-safe one to Pingdom / Uptime Kuma.
+
+### 1a. Live-safe health check (safe for 30s polling)
+
+**Goal:** Verify the service is alive and Conductor is reachable.
 
 **Steps:**
 
@@ -23,20 +27,65 @@ Organized by feature surface. For each feature, follow the manual steps and veri
    curl.exe -s http://localhost:5000/health
    ```
 
-**Expected outcome:**
+**Expected outcome (no live Conductor configured):**
 
 ```json
 {
   "status": "ok",
   "service": "conductor-companion",
-  "version": "1.0.0",
-  "uptime_seconds": 4.2
+  "version": "1.2.0",
+  "uptime_seconds": 4.2,
+  "checks": {
+    "conductor": { "ok": true, "detail": "not_configured", "latency_ms": null }
+  }
 }
 ```
 
-- `status` must be `"ok"`.
-- `service` must be `"conductor-companion"`.
-- `uptime_seconds` must be a positive number.
+**Expected outcome (live Conductor configured and reachable):**
+
+```json
+{
+  "status": "ok",
+  "checks": {
+    "conductor": { "ok": true, "detail": "reachable", "latency_ms": 18 }
+  }
+}
+```
+
+**Expected outcome (Conductor unreachable):**
+
+- HTTP 503 returned.
+- `"status": "degraded"`.
+- `"conductor": { "ok": false, "detail": "timeout" }`.
+
+### 1b. Functional / deep health check (CI gates and admin diagnostics only)
+
+**Goal:** Verify database connectivity and a real Conductor API round-trip.
+
+**Steps:**
+
+1. Run:
+   ```
+   curl.exe -s http://localhost:5000/health/deep
+   ```
+
+**Expected outcome:**
+
+```json
+{
+  "status": "ok",
+  "checks": {
+    "db": { "ok": true, "latency_ms": 3, "detail": "connected" },
+    "conductor": { "ok": true, "detail": "mock_mode", "latency_ms": null }
+  },
+  "request_id": "..."
+}
+```
+
+- `db.ok` confirms a live database `SELECT 1` round-trip succeeded.
+- `conductor.detail` is `"mock_mode"` when no `CONDUCTOR_URL` is set, or `"reachable"` with a live instance.
+- Returns HTTP 503 with `"status": "degraded"` if either check fails.
+- **Do not wire this endpoint to Pingdom or any automated monitor.**
 
 ---
 

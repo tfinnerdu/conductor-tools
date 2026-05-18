@@ -55,6 +55,8 @@
     <Compile Include="tests\test_test_harness.py" />
     <Compile Include="tests\test_digest.py" />
     <Compile Include="tests\test_secrets.py" />
+    <Compile Include="tests\test_health.py" />
+    <Compile Include="app\health_checks.py" />
   </ItemGroup>
   <ItemGroup>
     <Content Include=".env.example" />
