@@ -62,7 +62,7 @@ def create_batch():
 def batch_status(batch_id: int):
     """Poll batch status by paginating through all Conductor results."""
     try:
-        batch = MigrationBatch.query.get(batch_id)
+        batch = db.session.get(MigrationBatch, batch_id)
         if not batch:
             return _error("Batch not found", "NOT_FOUND", 404)
 
@@ -122,7 +122,7 @@ def batch_status(batch_id: int):
 def retry_failures(batch_id: int):
     """Retry all FAILED workflow executions in a batch."""
     try:
-        batch = MigrationBatch.query.get(batch_id)
+        batch = db.session.get(MigrationBatch, batch_id)
         if not batch:
             return _error("Batch not found", "NOT_FOUND", 404)
 
@@ -171,7 +171,7 @@ def retry_failures(batch_id: int):
 def export_batch(batch_id: int):
     """Export failed executions in a batch as CSV."""
     try:
-        batch = MigrationBatch.query.get(batch_id)
+        batch = db.session.get(MigrationBatch, batch_id)
         if not batch:
             return _error("Batch not found", "NOT_FOUND", 404)
 

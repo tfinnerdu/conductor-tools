@@ -241,6 +241,34 @@ def mock_conductor():
 @pytest.fixture()
 def client_with_mock_conductor(app, mock_conductor):
     """Flask test client with ConductorClient patched in all routes."""
+    from unittest.mock import MagicMock
+
+    mock_sf = MagicMock()
+    mock_sf.find_person_by_sis_id.return_value = {
+        "records": [{"Id": "SF001", "FirstName": "Alex", "LastName": "Student",
+                     "SIS_ID__c": "STU001", "Ethos_Guid__c": "mock-guid-001"}],
+        "record_count": 1,
+        "status": "ok",
+        "diagnosis": "Record looks healthy",
+    }
+    mock_sf.find_person_by_guid.return_value = {
+        "records": [{"Id": "SF001", "FirstName": "Alex", "LastName": "Student",
+                     "SIS_ID__c": "STU001", "Ethos_Guid__c": "mock-guid-001"}],
+        "record_count": 1,
+        "status": "ok",
+        "diagnosis": "Record looks healthy",
+    }
+    mock_sf.find_duplicate_accounts.return_value = []
+    mock_sf.get_account.return_value = {"Id": "SF001", "FirstName": "Alex", "LastName": "Student"}
+    mock_sf.check_health.return_value = {"ok": True, "detail": "not_configured", "latency_ms": None}
+
+    mock_ethos = MagicMock()
+    mock_ethos.get_person.return_value = {"id": "mock-guid", "content": {}}
+    mock_ethos.get_recent_events.return_value = []
+    mock_ethos.search_persons.return_value = []
+    mock_ethos.check_health.return_value = {"ok": True, "detail": "not_configured", "latency_ms": None}
+    mock_ethos._event_buffer = []
+
     with patch("app.routes.search.ConductorClient", return_value=mock_conductor), \
          patch("app.routes.workers.ConductorClient", return_value=mock_conductor), \
          patch("app.routes.batches.ConductorClient", return_value=mock_conductor), \
@@ -250,5 +278,9 @@ def client_with_mock_conductor(app, mock_conductor):
          patch("app.routes.reconciler.ConductorClient", return_value=mock_conductor), \
          patch("app.routes.tracer.ConductorClient", return_value=mock_conductor), \
          patch("app.routes.test_harness.ConductorClient", return_value=mock_conductor), \
-         patch("app.routes.digest.ConductorClient", return_value=mock_conductor):
+         patch("app.routes.digest.ConductorClient", return_value=mock_conductor), \
+         patch("app.routes.tracer.sf_provider", mock_sf), \
+         patch("app.routes.tracer.ethos_provider", mock_ethos), \
+         patch("app.routes.sf_console.sf_provider", mock_sf), \
+         patch("app.routes.ethos.ethos_provider", mock_ethos):
         yield app.test_client()

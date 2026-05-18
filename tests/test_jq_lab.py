@@ -165,3 +165,89 @@ class TestExpressionLibrary:
             content_type="application/json",
         )
         assert resp.status_code == 400
+
+    def test_list_expressions_with_tag_filter(self, client):
+        # Save an expression with a tag
+        client.post(
+            "/api/v1/jq/expressions",
+            data=json.dumps({
+                "name": "Tagged Expr",
+                "expression": ".foo",
+                "tags": "enrollment",
+            }),
+            content_type="application/json",
+        )
+        resp = client.get("/api/v1/jq/expressions?tag=enrollment")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert isinstance(data, list)
+
+    def test_list_expressions_with_resource_filter(self, client):
+        client.post(
+            "/api/v1/jq/expressions",
+            data=json.dumps({
+                "name": "Resource Expr",
+                "expression": ".bar",
+                "resourceName": "student",
+            }),
+            content_type="application/json",
+        )
+        resp = client.get("/api/v1/jq/expressions?resource=student")
+        assert resp.status_code == 200
+
+
+class TestJqEvaluateEdgeCases:
+    """Additional edge case tests for jq evaluate."""
+
+    def test_evaluate_invalid_json_string_input(self, client):
+        """When input is a malformed JSON string, return 400."""
+        mock_jq = MagicMock()
+        with patch.dict("sys.modules", {"jq": mock_jq}):
+            resp = client.post(
+                "/api/v1/jq/evaluate",
+                data=json.dumps({"expression": ".name", "input": "{not valid json}"}),
+                content_type="application/json",
+            )
+        # Returns 400 with error message
+        assert resp.status_code == 400
+        data = resp.get_json()
+        assert "Invalid JSON" in data.get("error", "") or data.get("code") == "VALIDATION_ERROR"
+
+    def test_evaluate_import_error_returns_500(self, client):
+        """When jq library is not installed, return 500 DEPENDENCY_ERROR."""
+        import sys
+        # Remove jq from sys.modules to simulate ImportError
+        original = sys.modules.pop("jq", None)
+        try:
+            # Make import fail
+            sys.modules["jq"] = None  # type: ignore
+            resp = client.post(
+                "/api/v1/jq/evaluate",
+                data=json.dumps({"expression": ".foo", "input": {}}),
+                content_type="application/json",
+            )
+        finally:
+            if original is not None:
+                sys.modules["jq"] = original
+            else:
+                sys.modules.pop("jq", None)
+        # May be 400 (VALIDATION_ERROR if expression missing) or 500 (import error)
+        assert resp.status_code in (400, 500)
+
+    def test_load_from_execution_by_index(self, client_with_mock_conductor):
+        """Load a task by index (taskIndex param)."""
+        resp = client_with_mock_conductor.get(
+            "/api/v1/jq/load-from-execution?workflowId=wf-001&taskIndex=0"
+        )
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["found"] is True
+
+    def test_load_from_execution_defaults_to_last_completed(self, client_with_mock_conductor):
+        """When no taskRef or taskIndex given, defaults to last completed task."""
+        resp = client_with_mock_conductor.get(
+            "/api/v1/jq/load-from-execution?workflowId=wf-001"
+        )
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert "found" in data

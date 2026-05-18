@@ -44,6 +44,11 @@
     <Compile Include="app\models\migration_batch.py" />
     <Compile Include="app\models\jq_expression.py" />
     <Compile Include="app\models\test_preset.py" />
+    <Compile Include="app\ethos_provider.py" />
+    <Compile Include="app\sf_provider.py" />
+    <Compile Include="app\notification_provider.py" />
+    <Compile Include="app\routes\ethos.py" />
+    <Compile Include="app\routes\sf_console.py" />
     <Compile Include="tests\__init__.py" />
     <Compile Include="tests\conftest.py" />
     <Compile Include="tests\test_conductor_client.py" />
@@ -57,6 +62,11 @@
     <Compile Include="tests\test_secrets.py" />
     <Compile Include="tests\test_health.py" />
     <Compile Include="app\health_checks.py" />
+    <Compile Include="tests\test_ethos_provider.py" />
+    <Compile Include="tests\test_sf_provider.py" />
+    <Compile Include="tests\test_notification_provider.py" />
+    <Compile Include="tests\test_batches.py" />
+    <Compile Include="tests\test_diff.py" />
   </ItemGroup>
   <ItemGroup>
     <Content Include=".env.example" />

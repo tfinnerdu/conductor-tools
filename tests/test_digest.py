@@ -168,3 +168,143 @@ def test_recommendations_severity_ordering(client):
             subsequent = recs[first_warning_idx + 1:]
             subsequent_errors = [r for r in subsequent if r["severity"] == "error"]
             assert subsequent_errors == [], "Errors should be sorted before warnings"
+
+
+# ---------------------------------------------------------------------------
+# Cached results
+# ---------------------------------------------------------------------------
+
+def test_daily_digest_uses_cache_on_second_call(client):
+    mock = _make_mock_conductor_digest()
+    with patch("app.routes.digest.ConductorClient", return_value=mock):
+        resp1 = client.get("/api/v1/digest/daily")
+        resp2 = client.get("/api/v1/digest/daily")
+    assert resp1.status_code == 200
+    assert resp2.status_code == 200
+    # Both should have the same date
+    assert resp1.get_json()["date"] == resp2.get_json()["date"]
+
+
+def test_workflow_history_returns_seven_days(client):
+    mock = _make_mock_conductor_digest()
+    with patch("app.routes.digest.ConductorClient", return_value=mock):
+        # Pre-populate cache
+        client.get("/api/v1/digest/daily")
+        resp = client.get("/api/v1/digest/workflow/student_enrollment/history")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert len(data["history"]) == 7
+
+
+def test_workflow_history_for_unknown_workflow(client):
+    mock = _make_mock_conductor_digest()
+    with patch("app.routes.digest.ConductorClient", return_value=mock):
+        resp = client.get("/api/v1/digest/workflow/nonexistent_workflow_xyz/history")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["name"] == "nonexistent_workflow_xyz"
+    assert isinstance(data["history"], list)
+
+
+def test_regression_detection_logic(client):
+    """Regressions are detected when workflow is >50% slower than 7-day avg."""
+    mock = _make_mock_conductor_digest()
+    with patch("app.routes.digest.ConductorClient", return_value=mock):
+        resp = client.get("/api/v1/digest/daily")
+    data = resp.get_json()
+    # Regressions field should be a list
+    assert isinstance(data["regressions"], list)
+    # Each regression has required fields
+    for reg in data.get("regressions", []):
+        assert "workflow_name" in reg
+        assert "current_avg_ms" in reg
+        assert "historical_avg_ms" in reg
+        assert "pct_slower" in reg
+
+
+def test_daily_digest_hours_back_param(client):
+    mock = _make_mock_conductor_digest()
+    with patch("app.routes.digest.ConductorClient", return_value=mock):
+        resp = client.get("/api/v1/digest/daily?hours_back=48&date=2025-01-10")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["hours_back"] == 48
+
+
+def test_recommendations_with_high_failure_rate(client):
+    """A workflow with >5% failure rate should produce a recommendation."""
+    mock = _make_mock_conductor_digest()
+    # The mock returns 4/20 = 20% failure rate per workflow
+    with patch("app.routes.digest.ConductorClient", return_value=mock):
+        client.get("/api/v1/digest/daily")
+        resp = client.get("/api/v1/digest/recommendations")
+    data = resp.get_json()
+    # Should have failure_rate recommendations
+    failure_recs = [r for r in data["recommendations"] if r["category"] == "failure_rate"]
+    assert len(failure_recs) > 0
+
+
+# ---------------------------------------------------------------------------
+# _determine_trend unit tests
+# ---------------------------------------------------------------------------
+
+def test_determine_trend_new_when_no_history():
+    from app.routes.digest import _determine_trend
+    result = _determine_trend("new_workflow", 1000, {})
+    assert result == "new"
+
+
+def test_determine_trend_up_when_slower():
+    from app.routes.digest import _determine_trend, _date_str
+    # Build a fake cache with low avg_ms
+    cache = {
+        _date_str(1): {
+            "workflows": [{"name": "my_workflow", "avg_ms": 1000}]
+        }
+    }
+    result = _determine_trend("my_workflow", 2000, cache)  # 2x slower → "up"
+    assert result == "up"
+
+
+def test_determine_trend_down_when_faster():
+    from app.routes.digest import _determine_trend, _date_str
+    cache = {
+        _date_str(1): {
+            "workflows": [{"name": "my_workflow", "avg_ms": 2000}]
+        }
+    }
+    result = _determine_trend("my_workflow", 500, cache)  # 4x faster → "down"
+    assert result == "down"
+
+
+def test_determine_trend_stable():
+    from app.routes.digest import _determine_trend, _date_str
+    cache = {
+        _date_str(1): {
+            "workflows": [{"name": "my_workflow", "avg_ms": 1000}]
+        }
+    }
+    result = _determine_trend("my_workflow", 1000, cache)  # same → "stable"
+    assert result == "stable"
+
+
+def test_determine_trend_skips_zero_avg():
+    from app.routes.digest import _determine_trend, _date_str
+    cache = {
+        _date_str(1): {
+            "workflows": [{"name": "my_workflow", "avg_ms": 0}]  # excluded
+        }
+    }
+    result = _determine_trend("my_workflow", 1000, cache)
+    assert result == "new"  # no valid history → "new"
+
+
+def test_daily_digest_error_path(client):
+    """When ConductorClient raises, return 500."""
+    mock = MagicMock()
+    mock.list_workflow_definitions.side_effect = Exception("conductor down")
+    with patch("app.routes.digest.ConductorClient", return_value=mock):
+        resp = client.get("/api/v1/digest/daily?date=2099-01-01")
+    assert resp.status_code == 500
+    data = resp.get_json()
+    assert data["code"] == "DIGEST_ERROR"

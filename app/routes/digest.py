@@ -187,8 +187,14 @@ def init_scheduler(app):
         def _job():
             with app.app_context():
                 try:
-                    generate_daily_digest()
+                    digest = generate_daily_digest()
                     app.logger.info("Scheduled daily digest generated.")
+                    try:
+                        from app.notification_provider import deliver_digest
+                        result = deliver_digest(digest)
+                        app.logger.info("digest_delivered: %s", result)
+                    except Exception as exc:
+                        app.logger.error("digest_delivery_error: %s", exc)
                 except Exception as exc:
                     app.logger.error("Scheduled digest error: %s", exc)
 

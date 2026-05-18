@@ -1,7 +1,7 @@
 """Tracer routes — /api/v1/tracer/*
 
 End-to-End Correlation Tracer: given a GUID or SIS_ID, produces a unified
-timeline of events across Conductor (real) and Salesforce (mock).
+timeline of events across Conductor (real), Salesforce, and Ethos.
 """
 import re
 import uuid
@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from flask import Blueprint, current_app, jsonify, request
 
 from app.conductor_client import ConductorClient
+from app import sf_provider, ethos_provider
 
 tracer_bp = Blueprint("tracer", __name__, url_prefix="/api/v1/tracer")
 
@@ -50,48 +51,19 @@ def diagnose_sf_state(records: list) -> str:
     return "Record looks healthy"
 
 
-def _mock_sf_lookup(identifier: str, search_type: str) -> dict:
-    """Return mock Salesforce data shaped like a real SF query result."""
-    # Simulate: most identifiers find exactly one healthy record
-    # A few edge cases are seeded for testing
-    if "dup" in identifier.lower():
-        records = [
-            {"Id": "SF001", "FirstName": "Jane", "LastName": "Doe", "SIS_ID__c": identifier},
-            {"Id": "SF002", "FirstName": "Jane", "LastName": "Doe", "SIS_ID__c": identifier},
-        ]
-    elif "missing" in identifier.lower():
-        records = [{"Id": "SF003", "FirstName": "John", "LastName": "Smith", "SIS_ID__c": None}]
-    elif "notfound" in identifier.lower() or "404" in identifier:
-        records = []
-    else:
-        records = [
-            {
-                "Id": "SF" + identifier[-6:].upper().replace("-", "0"),
-                "FirstName": "Alex",
-                "LastName": "Student",
-                "SIS_ID__c": identifier,
-                "Email": "alex.student@doane.edu",
-                "RecordType": "Person",
-            }
-        ]
+def _sf_lookup(identifier: str, search_type: str) -> dict:
+    """Look up a person in Salesforce via the sf_provider.
 
-    diagnosis = diagnose_sf_state(records)
-    status = "ok"
-    if len(records) == 0:
-        status = "error"
-    elif len(records) > 1 or (len(records) == 1 and not records[0].get("SIS_ID__c")):
-        status = "warning"
-
-    return {
-        "records": records,
-        "record_count": len(records),
-        "status": status,
-        "diagnosis": diagnosis,
-    }
+    Delegates to find_person_by_guid (when search_type=='guid') or
+    find_person_by_sis_id (otherwise).  Mock data lives in sf_provider.
+    """
+    if search_type == "guid":
+        return sf_provider.find_person_by_guid(identifier)
+    return sf_provider.find_person_by_sis_id(identifier)
 
 
 def _build_timeline(conductor_results: list, sf_result: dict, identifier: str) -> list:
-    """Merge Conductor executions and SF data into a sorted timeline."""
+    """Merge Conductor executions, SF data, and Ethos events into a sorted timeline."""
     events = []
 
     # Add Conductor events
@@ -150,6 +122,23 @@ def _build_timeline(conductor_results: list, sf_result: dict, identifier: str) -
         }
     )
 
+    # Add Ethos change-notification events for this person (filtered by identifier)
+    ethos_events = ethos_provider.get_recent_events(resource="persons")
+    for evt in ethos_events:
+        # Filter to events that mention this identifier (best-effort string match)
+        evt_content = str(evt.get("content", "")) + str(evt.get("id", ""))
+        if identifier and identifier not in evt_content:
+            continue
+        events.append(
+            {
+                "timestamp": evt.get("received_at", _now_iso()),
+                "system": "ETHOS",
+                "event": f"Ethos change: {evt.get('operation', 'unknown')}",
+                "detail": f"resource={evt.get('resource', 'persons')} id={evt.get('id', '')}",
+                "status": "ok",
+            }
+        )
+
     # Sort ascending by timestamp
     events.sort(key=lambda e: e.get("timestamp", ""))
     return events
@@ -179,7 +168,7 @@ def trace_person():
         conductor_results = search_result.get("results", [])
 
         # Mock Salesforce lookup
-        sf_result = _mock_sf_lookup(sis_id or guid, "sis_id" if sis_id else "guid")
+        sf_result = _sf_lookup(sis_id or guid, "sis_id" if sis_id else "guid")
 
         timeline = _build_timeline(conductor_results, sf_result, identifier)
 
@@ -250,7 +239,7 @@ def trace_person_get(identifier: str):
         conductor_results = search_result.get("results", [])
 
         sis_id = "" if _is_guid(identifier) else identifier
-        sf_result = _mock_sf_lookup(sis_id or identifier, "sis_id" if sis_id else "guid")
+        sf_result = _sf_lookup(sis_id or identifier, "sis_id" if sis_id else "guid")
 
         timeline = _build_timeline(conductor_results, sf_result, identifier)
 

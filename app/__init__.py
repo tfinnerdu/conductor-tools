@@ -52,6 +52,8 @@ def create_app(config_override=None):
     from app.routes.tracer import tracer_bp
     from app.routes.test_harness import test_harness_bp
     from app.routes.digest import digest_bp
+    from app.routes.ethos import ethos_bp
+    from app.routes.sf_console import sf_console_bp
 
     app.register_blueprint(health_bp)
     app.register_blueprint(search_bp)
@@ -64,6 +66,8 @@ def create_app(config_override=None):
     app.register_blueprint(tracer_bp)
     app.register_blueprint(test_harness_bp)
     app.register_blueprint(digest_bp)
+    app.register_blueprint(ethos_bp)
+    app.register_blueprint(sf_console_bp)
 
     # Register main UI route
     from app.routes import main_bp

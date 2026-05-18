@@ -122,3 +122,59 @@ class TestAdvancedSearchEndpoint:
         assert data["status"] == "ok"
         assert data["service"] == "conductor-companion"
         assert "uptime_seconds" in data
+
+    def test_export_csv_returns_csv(self, client_with_mock_conductor):
+        resp = client_with_mock_conductor.post(
+            "/api/v1/search/export",
+            data=json.dumps({"workflowType": "order_fulfillment"}),
+            content_type="application/json",
+        )
+        assert resp.status_code == 200
+        assert "text/csv" in resp.content_type
+
+    def test_export_csv_has_header_row(self, client_with_mock_conductor):
+        resp = client_with_mock_conductor.post(
+            "/api/v1/search/export",
+            data=json.dumps({}),
+            content_type="application/json",
+        )
+        csv_content = resp.data.decode("utf-8")
+        assert "workflowId" in csv_content
+        assert "status" in csv_content
+
+    def test_export_csv_with_filters(self, client_with_mock_conductor):
+        resp = client_with_mock_conductor.post(
+            "/api/v1/search/export",
+            data=json.dumps({
+                "filters": [{"path": "status", "operator": "eq", "value": "COMPLETED"}]
+            }),
+            content_type="application/json",
+        )
+        assert resp.status_code == 200
+
+    def test_advanced_search_error_path(self, client_with_mock_conductor, mock_conductor):
+        mock_conductor.search.side_effect = Exception("conductor unreachable")
+        resp = client_with_mock_conductor.post(
+            "/api/v1/search/advanced",
+            data=json.dumps({"workflowType": "test"}),
+            content_type="application/json",
+        )
+        assert resp.status_code == 500
+        # Reset side effect
+        import time
+        now_ms = int(time.time() * 1000)
+        mock_conductor.search.side_effect = None
+        mock_conductor.search.return_value = {"totalHits": 0, "results": []}
+
+    def test_delete_nonexistent_saved_search_returns_404(self, client_with_mock_conductor):
+        resp = client_with_mock_conductor.delete("/api/v1/search/saved/99999")
+        assert resp.status_code == 404
+
+    def test_create_saved_search_missing_name(self, client_with_mock_conductor):
+        resp = client_with_mock_conductor.post(
+            "/api/v1/search/saved",
+            data=json.dumps({"description": "no name"}),
+            content_type="application/json",
+        )
+        assert resp.status_code == 400
+        assert resp.get_json()["code"] == "VALIDATION_ERROR"
