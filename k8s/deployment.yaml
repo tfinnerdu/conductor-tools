@@ -28,7 +28,7 @@ metadata:
   namespace: prod
   labels:
     app: conductor-companion
-    version: "1.0.0"
+    version: "1.2.0"
 spec:
   replicas: 2
   selector:
@@ -38,13 +38,13 @@ spec:
     metadata:
       labels:
         app: conductor-companion
-        version: "1.0.0"
+        version: "1.2.0"
     spec:
       imagePullSecrets:
         - name: regcred
       containers:
         - name: conductor-companion
-          image: doaneu/conductor-companion:1.0.0
+          image: doaneu/conductor-companion:1.2.0
           imagePullPolicy: Always
           ports:
             - containerPort: 5000

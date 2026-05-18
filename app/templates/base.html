@@ -29,6 +29,7 @@
         <li><a href="#reconciler" id="tab-reconciler">Reconciler</a></li>
         <li><a href="#traces"     id="tab-traces"    >Traces</a></li>
         <li><a href="#digest"     id="tab-digest"    >Digest</a></li>
+        <li><a href="#settings" id="tab-settings">Settings</a></li>
     </ul>
 </div>
 
@@ -51,6 +52,7 @@
 <script src="{{ url_for('static', filename='js/tracer.js') }}"></script>
 <script src="{{ url_for('static', filename='js/digest.js') }}"></script>
 <script src="{{ url_for('static', filename='js/test_harness.js') }}"></script>
+<script src="{{ url_for('static', filename='js/secrets.js') }}"></script>
 <script>
     // Show server URL in top bar
     document.addEventListener('DOMContentLoaded', function () {

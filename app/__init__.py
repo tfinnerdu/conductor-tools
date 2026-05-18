@@ -36,6 +36,10 @@ def create_app(config_override=None):
     # Initialize extensions
     db.init_app(app)
 
+    # Start APScheduler for daily digest caching
+    from app.routes.digest import init_scheduler
+    init_scheduler(app)
+
     # Register blueprints
     from app.routes.health import health_bp
     from app.routes.search import search_bp

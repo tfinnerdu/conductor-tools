@@ -111,6 +111,49 @@
         }
     }
 
+    function renderDependencyTree(nodes) {
+        // nodes is [{workflowName, version, taskTypes}]
+        // Group by workflowName, collect all task types across versions
+        if (!nodes.length) return '<p class="text-muted">No workflows found.</p>';
+
+        const byName = {};
+        nodes.forEach(n => {
+            const name = n.workflowName;
+            if (!byName[name]) byName[name] = { taskTypes: new Set(), versions: [] };
+            byName[name].versions.push(n.version);
+            (n.taskTypes || []).forEach(t => byName[name].taskTypes.add(t));
+        });
+
+        const names = Object.keys(byName).sort();
+        const rows = names.map(name => {
+            const node = byName[name];
+            const tasks = Array.from(node.taskTypes).sort();
+            const versions = node.versions.sort((a, b) => a - b);
+            const hasChildren = tasks.length > 0;
+            const taskPills = tasks.map(t =>
+                `<span class="pill pill-task">${escapeHtml(t)}</span>`
+            ).join('');
+            const subRows = tasks.map(t =>
+                `<div class="dep-child"><span class="dep-arrow">&#8627;</span> <span class="dep-name">${escapeHtml(t)}</span></div>`
+            ).join('');
+            const versionLabel = versions.map(v => 'v' + v).join(', ');
+
+            return `
+                <div class="dep-row ${hasChildren ? 'dep-expandable' : ''}" data-name="${escapeHtml(name)}">
+                  <div class="dep-header" ${hasChildren ? 'onclick="this.parentElement.classList.toggle(\'open\')"' : ''}>
+                    <span class="dep-toggle">${hasChildren ? '&#9654;' : ' '}</span>
+                    <span class="dep-name">${escapeHtml(name)}</span>
+                    <span class="text-muted font-sm" style="margin-left:0.5rem">(${escapeHtml(versionLabel)})</span>
+                    <span class="dep-tasks">${taskPills}</span>
+                  </div>
+                  ${hasChildren ? `<div class="dep-children">${subRows}</div>` : ''}
+                </div>
+            `;
+        }).join('');
+
+        return `<div class="dep-tree">${rows}</div>`;
+    }
+
     async function loadDependencyMap() {
         const el = document.getElementById('dependency-map-content');
         if (!el) return;
@@ -126,29 +169,8 @@
                 return;
             }
 
-            el.innerHTML = `
-                <p class="text-muted font-sm mb-1">${nodes.length} workflow versions indexed</p>
-                <div class="table-wrapper">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Workflow</th>
-                                <th>Version</th>
-                                <th>Task Types Used</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${nodes.map(n => `
-                                <tr>
-                                    <td>${escapeHtml(n.workflowName)}</td>
-                                    <td>v${n.version}</td>
-                                    <td>${n.taskTypes.map(t => '<span class="badge badge-navy" style="margin:1px">' + escapeHtml(t) + '</span>').join(' ')}</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            `;
+            el.innerHTML = `<p class="text-muted font-sm mb-1">${nodes.length} workflow versions indexed</p>` +
+                renderDependencyTree(nodes);
         } catch (err) {
             el.innerHTML = '<p class="text-muted">Could not load dependency map.</p>';
             showToast('Dependency map failed: ' + err.message, 'error');

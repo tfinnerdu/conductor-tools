@@ -583,4 +583,24 @@
 
 </div><!-- /panel-digest -->
 
+
+<!-- ============================================================
+     SETTINGS TAB
+     ============================================================ -->
+<div id="panel-settings" class="tab-panel">
+  <div class="card mb-2">
+    <div class="card__title">Conductor Secrets</div>
+    <!-- Add Secret form -->
+    <form id="add-secret-form" class="form-inline mb-1" style="display:flex;gap:0.5rem;flex-wrap:wrap">
+      <input type="text" id="new-secret-name" class="form-control" placeholder="Secret name" style="max-width:200px" required />
+      <input type="password" id="new-secret-value" class="form-control" placeholder="Secret value" style="max-width:240px" required />
+      <button type="submit" class="btn btn-primary btn-sm">Add / Update</button>
+    </form>
+    <!-- Secrets table -->
+    <div id="secrets-list-container">
+      <p class="text-muted font-sm">Loading secrets...</p>
+    </div>
+  </div>
+</div><!-- /panel-settings -->
+
 {% endblock %}

@@ -35,16 +35,26 @@
     <Compile Include="app\routes\batches.py" />
     <Compile Include="app\routes\diff.py" />
     <Compile Include="app\routes\secrets.py" />
+    <Compile Include="app\routes\reconciler.py" />
+    <Compile Include="app\routes\tracer.py" />
+    <Compile Include="app\routes\test_harness.py" />
+    <Compile Include="app\routes\digest.py" />
     <Compile Include="app\models\__init__.py" />
     <Compile Include="app\models\saved_search.py" />
     <Compile Include="app\models\migration_batch.py" />
     <Compile Include="app\models\jq_expression.py" />
+    <Compile Include="app\models\test_preset.py" />
     <Compile Include="tests\__init__.py" />
     <Compile Include="tests\conftest.py" />
     <Compile Include="tests\test_conductor_client.py" />
     <Compile Include="tests\test_search.py" />
     <Compile Include="tests\test_jq_lab.py" />
     <Compile Include="tests\test_workers.py" />
+    <Compile Include="tests\test_reconciler.py" />
+    <Compile Include="tests\test_tracer.py" />
+    <Compile Include="tests\test_test_harness.py" />
+    <Compile Include="tests\test_digest.py" />
+    <Compile Include="tests\test_secrets.py" />
   </ItemGroup>
   <ItemGroup>
     <Content Include=".env.example" />
