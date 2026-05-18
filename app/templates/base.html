@@ -25,7 +25,8 @@
         <li><a href="#jq-lab"     id="tab-jq-lab"    >JQ Lab</a></li>
         <li><a href="#workers"    id="tab-workers"   >Workers</a></li>
         <li><a href="#migrations" id="tab-migrations">Migrations</a></li>
-        <li><a href="#diff"       id="tab-diff"      >Diff</a></li>
+        <li><a href="#diff"       id="tab-diff"       >Diff</a></li>
+        <li><a href="#reconciler" id="tab-reconciler">Reconciler</a></li>
         <li><a href="#traces"     id="tab-traces"    >Traces</a></li>
         <li><a href="#digest"     id="tab-digest"    >Digest</a></li>
     </ul>
@@ -46,6 +47,10 @@
 <script src="{{ url_for('static', filename='js/workers.js') }}"></script>
 <script src="{{ url_for('static', filename='js/migrations.js') }}"></script>
 <script src="{{ url_for('static', filename='js/diff.js') }}"></script>
+<script src="{{ url_for('static', filename='js/reconciler.js') }}"></script>
+<script src="{{ url_for('static', filename='js/tracer.js') }}"></script>
+<script src="{{ url_for('static', filename='js/digest.js') }}"></script>
+<script src="{{ url_for('static', filename='js/test_harness.js') }}"></script>
 <script>
     // Show server URL in top bar
     document.addEventListener('DOMContentLoaded', function () {

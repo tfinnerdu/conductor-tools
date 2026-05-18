@@ -6,7 +6,7 @@
 // Tab router
 // ---------------------------------------------------------------------------
 
-const TAB_PANELS = ['search', 'jq-lab', 'workers', 'migrations', 'diff', 'traces', 'digest'];
+const TAB_PANELS = ['search', 'jq-lab', 'workers', 'migrations', 'diff', 'reconciler', 'traces', 'digest'];
 
 function activateTab(tabName) {
     TAB_PANELS.forEach(name => {

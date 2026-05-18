@@ -319,3 +319,232 @@ Organized by feature surface. For each feature, follow the manual steps and veri
 2. Click **Analyze Impact**.
 
 **Expected outcome:** A message says "No workflows reference task type nonexistent_task_xyz."
+
+---
+
+## 7. Error Reconciler
+
+### 7a. View failure summary
+
+**Steps:**
+
+1. Click the **Reconciler** tab.
+2. The page loads automatically and shows the failure summary grouped by workflow and task type.
+
+**Expected outcome:** The Failure Summary card shows a count of total failures in the last 24 hours. Each workflow section lists the task types that failed with error code breakdowns (e.g., `HTTP_404 x7`, `TIMEOUT x2`).
+
+### 7b. Change time window
+
+**Steps:**
+
+1. Change the **Hours back** dropdown to `6h`.
+
+**Expected outcome:** The summary refreshes and shows only failures from the last 6 hours. The total count typically decreases.
+
+### 7c. Drill into a failure group
+
+**Steps:**
+
+1. In the Failures by Task Type table, note a row with task type `ethos_get_person`.
+2. Click the **Retry All** button next to that row.
+
+**Expected outcome:** A toast notification says "Retried N workflows". The table refreshes.
+
+### 7d. Bulk retry with checkboxes
+
+**Steps:**
+
+1. Check the checkbox next to two or more failure groups.
+2. The **Bulk Retry Selected** button appears at the bottom with a count of selected executions.
+3. Click **Bulk Retry Selected**.
+
+**Expected outcome:** A success message shows how many were retried. The selection is cleared.
+
+### 7e. Drill into a single execution
+
+**Steps:**
+
+1. Run:
+   ```
+   curl.exe -s http://localhost:5000/api/v1/reconciler/failures/mock-fail-ethos-0001
+   ```
+
+**Expected outcome:** A JSON object with `failedTask`, `errorCode`, `retryCount`, and `sisId` fields. The `errorCode` should be a short code like `HTTP_404` rather than the full error string.
+
+---
+
+## 8. Correlation Tracer
+
+### 8a. Trace by GUID
+
+**Steps:**
+
+1. Click the **Traces** tab.
+2. Leave **GUID** selected in the radio buttons.
+3. Enter a GUID such as `11111111-1111-1111-1111-111111111111`.
+4. Click **Trace**.
+
+**Expected outcome:** The Event Timeline card appears with events sorted by timestamp. Each event has a colored system badge (CONDUCTOR in navy, SALESFORCE in blue). A diagnosis message appears above the timeline.
+
+### 8b. Trace by SIS_ID
+
+**Steps:**
+
+1. Select **SIS_ID** in the radio buttons.
+2. Enter `SIS123456`.
+3. Click **Trace**.
+
+**Expected outcome:** The timeline shows Conductor search results and a Salesforce record lookup. The diagnosis says "Record looks healthy" for a normal SIS_ID.
+
+### 8c. Trace an identifier with no records
+
+**Steps:**
+
+1. Select **SIS_ID** and enter `SIS_NOTFOUND`.
+2. Click **Trace**.
+
+**Expected outcome:** The Salesforce event shows a red error status. The diagnosis says "Record not found in Salesforce — migration has not run or failed."
+
+### 8d. Trace a duplicate record
+
+**Steps:**
+
+1. Select **SIS_ID** and enter any value containing the word `dup` (e.g., `SIS_DUP123`).
+2. Click **Trace**.
+
+**Expected outcome:** The Salesforce event shows a yellow warning badge. The diagnosis says "DUPLICATE: 2 records found — merge required."
+
+### 8e. Read recent traces
+
+**Steps:**
+
+1. After performing several traces, scroll down to the **Recent Traces** section.
+
+**Expected outcome:** The last traces are listed with timestamps, identifiers, event counts, and ok/error badges. Clicking **Retrace** on any entry re-runs that trace automatically.
+
+### 8f. GET shorthand
+
+**Steps:**
+
+1. Run:
+   ```
+   curl.exe -s http://localhost:5000/api/v1/tracer/person/SIS123456
+   ```
+
+**Expected outcome:** Same response shape as the POST endpoint. UUID-format identifiers are auto-detected as GUIDs; all others are treated as SIS_IDs.
+
+---
+
+## 9. Workflow Test Harness
+
+### 9a. Open Test Harness
+
+**Steps:**
+
+1. Click the **JQ Lab** tab.
+2. Click the **Test Harness** sub-tab at the top.
+
+**Expected outcome:** The Test Harness panel loads with a workflow dropdown, input JSON textarea, task mocks textarea, and a presets list.
+
+### 9b. Load a preset
+
+**Steps:**
+
+1. In the Presets section, click **Apply** next to "Person created in Colleague".
+
+**Expected outcome:** The Workflow dropdown selects `student_enrollment`, the Workflow Input textarea fills with the person payload, and the Task Mocks textarea fills with the mock output definitions.
+
+### 9c. Load task reference names
+
+**Steps:**
+
+1. Select `student_enrollment` from the Workflow dropdown.
+2. Click **Load Task Refs**.
+
+**Expected outcome:** A Task Reference Names card appears listing all task reference names in the workflow (e.g., `ethos_get_person_ref`, `enroll_ref`). Each has an **Add Mock** button.
+
+### 9d. Add a task mock
+
+**Steps:**
+
+1. Click **Add Mock** next to a task reference name.
+
+**Expected outcome:** The Task Mocks textarea gains an entry for that task reference with an empty `outputData` object. You can now fill in the desired output.
+
+### 9e. Run a test
+
+**Steps:**
+
+1. With a workflow and mocks configured, click **Run Test**.
+
+**Expected outcome:** The Test Result card appears showing the workflow execution status (COMPLETED or FAILED), a table of tasks with their statuses and durations, and the workflow output. A "simulated" badge confirms this ran in mock mode.
+
+### 9f. Verify Ethos 404 preset causes failure
+
+**Steps:**
+
+1. Apply the **Ethos 404 error** preset.
+2. Click **Run Test**.
+
+**Expected outcome:** The Test Result shows status `FAILED`. The task table shows the `ethos_get_person_ref` task as FAILED with HTTP_404 in its output.
+
+### 9g. Save a custom preset
+
+**Steps:**
+
+1. Configure a custom workflow input and task mocks.
+2. Click **Save as Preset**.
+3. Enter a name when prompted.
+
+**Expected outcome:** The preset appears in the Presets list for future use.
+
+---
+
+## 10. Performance Digest
+
+### 10a. Load digest
+
+**Steps:**
+
+1. Click the **Digest** tab.
+
+**Expected outcome:** The page auto-loads the daily digest. The Workflow Performance table shows a row for each workflow with total executions, failures, failure percentage, average duration, and a trend arrow.
+
+### 10b. Read recommendations
+
+**Steps:**
+
+1. The Recommendations section at the top of the Digest tab is visible.
+
+**Expected outcome:** If any workflows have failure rates above 5%, they appear with orange (warning) or red (error) severity badges. Worker health issues and performance regressions also appear here. If everything is healthy, a green "No issues found" message is shown.
+
+### 10c. Check trend arrows
+
+**Expected outcome:**
+- `↑` (up arrow) in red means the workflow is slower than its 7-day average.
+- `↓` (down arrow) in green means it is faster.
+- `→` (right arrow) in gray means performance is stable.
+- `new` means there is no historical data to compare against.
+
+### 10d. Check regressions
+
+**Expected outcome:** If any workflow is more than 50% slower than its 7-day average, it appears in a red Regressions section at the bottom of the page with the current and historical average durations.
+
+### 10e. Check workflow history via API
+
+**Steps:**
+
+1. Run:
+   ```
+   curl.exe -s http://localhost:5000/api/v1/digest/workflow/student_enrollment/history
+   ```
+
+**Expected outcome:** A JSON object with `name` and a `history` array of up to 7 entries, each with `date`, `total`, `failed`, and `avg_ms`.
+
+### 10f. Refresh digest
+
+**Steps:**
+
+1. Click the **Refresh** button in the Digest tab.
+
+**Expected outcome:** The digest regenerates and the "Generated:" timestamp updates to the current time.

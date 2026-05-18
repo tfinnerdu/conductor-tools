@@ -211,6 +211,24 @@ def _make_mock_conductor():
     # list_secrets
     mock.list_secrets.return_value = ["PAYMENT_API_KEY", "EMAIL_SECRET", "DB_PASSWORD"]
 
+    # get_failures_by_task_type (Phase 2 — Reconciler)
+    mock.get_failures_by_task_type.return_value = {
+        "workflow_name": "student_enrollment",
+        "hours_back": 24,
+        "groups": [
+            {
+                "task_type": "ethos_get_person",
+                "count": 8,
+                "reasons": {"HTTP_404": 5, "TIMEOUT": 3},
+                "workflow_ids": [f"mock-fail-{i:04d}" for i in range(8)],
+            },
+        ],
+        "total_failures": 8,
+    }
+
+    # retry_workflow mock (returns None for all calls in mock mode)
+    mock.retry_workflow.return_value = None
+
     return mock
 
 
@@ -228,5 +246,9 @@ def client_with_mock_conductor(app, mock_conductor):
          patch("app.routes.batches.ConductorClient", return_value=mock_conductor), \
          patch("app.routes.diff.ConductorClient", return_value=mock_conductor), \
          patch("app.routes.secrets.ConductorClient", return_value=mock_conductor), \
-         patch("app.routes.jq_lab.ConductorClient", return_value=mock_conductor):
+         patch("app.routes.jq_lab.ConductorClient", return_value=mock_conductor), \
+         patch("app.routes.reconciler.ConductorClient", return_value=mock_conductor), \
+         patch("app.routes.tracer.ConductorClient", return_value=mock_conductor), \
+         patch("app.routes.test_harness.ConductorClient", return_value=mock_conductor), \
+         patch("app.routes.digest.ConductorClient", return_value=mock_conductor):
         yield app.test_client()

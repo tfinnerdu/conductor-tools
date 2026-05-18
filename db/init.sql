@@ -26,6 +26,17 @@ CREATE TABLE IF NOT EXISTS migration_batches (
     notes                 TEXT         NOT NULL DEFAULT ''
 );
 
+CREATE TABLE IF NOT EXISTS test_presets (
+    id           SERIAL PRIMARY KEY,
+    name         VARCHAR(200) NOT NULL,
+    description  TEXT,
+    workflow_name VARCHAR(200),
+    input_data   JSONB NOT NULL DEFAULT '{}',
+    task_mocks   JSONB NOT NULL DEFAULT '{}',
+    created_by   VARCHAR(100),
+    created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS jq_expressions (
     id            SERIAL PRIMARY KEY,
     name          VARCHAR(200) NOT NULL UNIQUE,

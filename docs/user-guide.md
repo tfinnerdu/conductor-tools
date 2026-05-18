@@ -143,12 +143,120 @@ If you are planning to change a task type (rename it, update its inputs, etc.), 
 
 ---
 
-## Traces Tab (Coming Soon)
+## Reconciler Tab
 
-The Traces tab will provide distributed trace visualization for Conductor executions. This is planned for Phase 2.
+The Reconciler tab groups failed workflow executions by the task type that caused the failure. This makes it easy to spot patterns (for example, "12 failures all caused by `ethos_get_person` returning HTTP 404") and retry them in bulk.
+
+**Reading the failure summary**
+
+When you open the tab, the app loads a summary of all failures in the last 24 hours. The top section shows total failures across all workflows. Below that, each workflow is broken down by task type with error code counts (e.g., `HTTP_404 x7`, `TIMEOUT x2`).
+
+**Changing the time window**
+
+Use the **Hours back** dropdown to change the look-back window from 6 to 72 hours. The summary refreshes automatically.
+
+**Retrying a failure group**
+
+In the Failures by Task Type table, click **Retry All** next to any task type to retry all executions in that group at once.
+
+**Bulk retry with checkboxes**
+
+Check one or more task type rows using the checkboxes on the left. A **Bulk Retry Selected** button appears at the bottom of the page. Click it to retry all selected executions in a single API call. The result shows how many were successfully retried and how many errored.
+
+**Drilling into a single execution**
+
+Use the API directly to inspect one execution in detail:
+```
+GET /api/v1/reconciler/failures/<workflow_id>
+```
+The response includes the failed task type, the exact error message, a short extracted error code (like `HTTP_404` or `DUPLICATE_VALUE`), the retry count, and the workflow input (including `sisId` if present).
 
 ---
 
-## Digest Tab (Coming Soon)
+## Traces Tab
 
-The Digest tab will provide a configurable daily summary of workflow activity, failure trends, and worker health metrics. Delivery via email or Slack is planned for Phase 2.
+The Traces tab lets you follow a person's data through multiple systems by searching with a GUID or SIS_ID.
+
+**Tracing by GUID or SIS_ID**
+
+Select the search type (GUID or SIS_ID) using the radio buttons. Type the identifier in the text box and click **Trace**. The app searches Conductor for any workflow execution that mentions the identifier, and also does a mock Salesforce lookup.
+
+**Reading the timeline**
+
+The Event Timeline shows events sorted by time (oldest first). Each event has:
+
+- A system badge (CONDUCTOR in navy, SALESFORCE in blue)
+- A status icon: green checkmark for OK, red X for error, yellow warning for issues
+- The event name and a short detail string
+- For Salesforce events: the records found (with ID, name, and SIS_ID__c if present)
+
+**Diagnosis message**
+
+Below the search form, a colored diagnosis message summarizes what was found:
+- Green: everything looks healthy
+- Yellow: a warning, such as a record missing its SIS_ID__c
+- Red: an error, such as no record found or a duplicate
+
+**Recent traces**
+
+The Recent Traces section at the bottom shows the last 20 trace searches with timestamps, the identifier used, event counts, and whether any errors were found. Click **Retrace** to re-run any previous search.
+
+---
+
+## JQ Lab — Test Harness Sub-Tab
+
+Inside the JQ Lab tab there is now a **Test Harness** sub-tab alongside Sandbox and Library.
+
+**Running a test**
+
+Select a workflow from the dropdown, optionally set a version number, fill in the Workflow Input JSON, and add Task Mocks for any tasks you want to override. Click **Run Test**. In mock mode (no live Conductor), the execution is simulated in-process using the workflow definition. The Test Result card shows the execution status, a task-by-task breakdown, and the workflow output.
+
+**Using built-in presets**
+
+Four presets are pre-loaded to represent common Doane scenarios:
+
+- **Person created in Colleague** — a new person flowing through `student_enrollment` with a full Ethos person payload.
+- **Person address updated** — an address-change event with the updated address in the mock output.
+- **Application submitted** — an admissions application with payment charged.
+- **Ethos 404 error** — demonstrates what happens when `ethos_get_person` cannot find the record. The test run will show a FAILED status.
+
+Click **Apply** next to any preset to load it into the form. Then click **Run Test**.
+
+**Loading task reference names**
+
+After selecting a workflow, click **Load Task Refs** to see a list of all task reference names in the workflow definition. Each has an **Add Mock** button that inserts an empty mock entry into the Task Mocks textarea so you can fill in the desired output.
+
+**Saving a custom preset**
+
+After configuring a test you want to reuse, click **Save as Preset** and give it a name. It will appear in the Presets list for all future sessions.
+
+---
+
+## Digest Tab
+
+The Digest tab shows a daily performance summary across all watched workflows, with recommendations for issues that need attention.
+
+**Recommendations**
+
+The top section shows actionable recommendations color-coded by severity:
+- Red (error): workflows with failure rates above 20%, workers that are down, or workers with no registered pollers.
+- Orange (warning): workflows with failure rates above 5%, workers that are slow to poll, or performance regressions.
+
+If everything is healthy, a green "No issues found" message is shown.
+
+**Workflow Performance table**
+
+Each workflow has a row showing:
+- **Total** — executions in the period
+- **Failed** — how many failed
+- **Failure %** — failure rate (red if above 20%, orange if above 5%)
+- **Avg ms** — average execution duration
+- **Trend** — direction compared to the 7-day average: up arrow means slower, down arrow means faster, right arrow means stable, "new" means no history
+
+**Regressions**
+
+If any workflow is more than 50% slower than its 7-day average, it appears in a red Regressions section at the bottom of the page.
+
+**Refreshing**
+
+Click the **Refresh** button to regenerate the digest on demand. The "Generated:" timestamp updates. The digest is also regenerated automatically at 06:00 UTC daily.

@@ -151,11 +151,100 @@
 
     </div>
 
-    <!-- Expression library -->
-    <div class="card">
-        <div class="card__title">Expression Library</div>
-        <div id="jq-expression-library">
-            <p class="text-muted font-sm">Loading expressions...</p>
+    <!-- Sub-tab navigation: Sandbox / Library / Test -->
+    <div class="card" style="padding:0;overflow:visible">
+        <ul class="nav-tabs" style="padding-left:1rem;border-bottom:1px solid #dee2e6;margin:0">
+            <li><a href="#jq-sandbox" id="subtab-jq-sandbox" class="active" style="font-size:0.85rem">Sandbox</a></li>
+            <li><a href="#jq-library" id="subtab-jq-library" style="font-size:0.85rem">Library</a></li>
+            <li><a href="#jq-test"    id="subtab-jq-test"    style="font-size:0.85rem">Test Harness</a></li>
+        </ul>
+    </div>
+
+    <!-- Sandbox sub-panel (Expression Library) -->
+    <div id="subpanel-jq-sandbox" class="jq-subpanel active">
+        <div class="card">
+            <div class="card__title">Expression Library</div>
+            <div id="jq-expression-library">
+                <p class="text-muted font-sm">Loading expressions...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Library sub-panel -->
+    <div id="subpanel-jq-library" class="jq-subpanel" style="display:none">
+        <div class="card">
+            <div class="card__title">Saved Expressions</div>
+            <div id="jq-library-list">
+                <p class="text-muted font-sm">Loading library...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Test Harness sub-panel -->
+    <div id="subpanel-jq-test" class="jq-subpanel" style="display:none">
+        <div class="grid-2" style="align-items:start">
+
+            <!-- Left: workflow selector + mock inputs -->
+            <div>
+                <div class="card">
+                    <div class="card__title">Test Configuration</div>
+
+                    <div class="form-group">
+                        <label class="form-label">Workflow</label>
+                        <select id="th-workflow-select" class="form-control">
+                            <option value="">-- Select Workflow --</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Version</label>
+                        <input type="number" id="th-version" class="form-control"
+                            placeholder="Latest" min="1" style="max-width:100px" />
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Workflow Input (JSON)</label>
+                        <textarea id="th-workflow-input" class="form-control" rows="5"
+                            placeholder='{"sis_id": "SIS123456", "guid": "..."}'></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Task Mocks (JSON)</label>
+                        <textarea id="th-task-mocks" class="form-control" rows="8"
+                            placeholder='{"task_ref_name": {"outputData": {...}}}'></textarea>
+                    </div>
+
+                    <div class="toolbar">
+                        <button id="th-run-btn" class="btn btn-primary">Run Test</button>
+                        <button id="th-load-tasks-btn" class="btn btn-outline btn-sm">Load Task Refs</button>
+                    </div>
+                </div>
+
+                <!-- Task refs helper -->
+                <div id="th-task-refs-card" class="card d-none">
+                    <div class="card__title">Task Reference Names</div>
+                    <div id="th-task-refs-list"></div>
+                </div>
+            </div>
+
+            <!-- Right: presets + results -->
+            <div>
+                <div class="card">
+                    <div class="card__title">Presets</div>
+                    <div id="th-presets-list">
+                        <p class="text-muted font-sm">Loading presets...</p>
+                    </div>
+                    <div class="toolbar mt-1">
+                        <button id="th-save-preset-btn" class="btn btn-outline btn-sm">Save as Preset</button>
+                    </div>
+                </div>
+
+                <div id="th-result-card" class="card d-none">
+                    <div class="card__title">Test Result</div>
+                    <div id="th-result-content"></div>
+                </div>
+            </div>
+
         </div>
     </div>
 
@@ -337,28 +426,161 @@
 
 
 <!-- ============================================================
-     TRACES TAB (placeholder)
+     RECONCILER TAB
      ============================================================ -->
-<div id="panel-traces" class="tab-panel">
+<div id="panel-reconciler" class="tab-panel">
+
     <div class="card">
-        <div class="card__title">Traces</div>
-        <p class="text-muted">Distributed trace visualization coming in Phase 2.</p>
-        <p class="text-muted font-sm">This tab will show end-to-end execution traces correlated across workflow
-        instances using Conductor task IDs.</p>
+        <div class="d-flex align-center gap-1">
+            <div class="card__title" style="margin:0;border:none;padding:0">Error Reconciler</div>
+            <span id="reconciler-last-refreshed" class="text-muted font-sm" style="margin-left:auto"></span>
+            <button id="reconciler-refresh-btn" class="btn btn-outline btn-sm">Refresh</button>
+        </div>
     </div>
-</div>
+
+    <!-- Summary controls -->
+    <div class="card">
+        <div class="d-flex align-center gap-1 mb-1">
+            <div class="card__title" style="margin:0;border:none;padding:0">Failure Summary</div>
+            <div class="d-flex gap-1 align-center" style="margin-left:auto">
+                <label class="form-label" style="margin:0">Hours back:</label>
+                <select id="reconciler-hours-back" class="form-control" style="width:auto">
+                    <option value="6">6h</option>
+                    <option value="24" selected>24h</option>
+                    <option value="48">48h</option>
+                    <option value="72">72h</option>
+                </select>
+            </div>
+        </div>
+        <div id="reconciler-summary-content">
+            <p class="text-muted font-sm">Loading failure summary...</p>
+        </div>
+    </div>
+
+    <!-- Failure groups by task type -->
+    <div class="card">
+        <div class="card__title">Failures by Task Type</div>
+        <div id="reconciler-groups-content">
+            <p class="text-muted font-sm">Select a workflow above or load all.</p>
+        </div>
+    </div>
+
+    <!-- Bulk retry toolbar -->
+    <div class="card" id="reconciler-bulk-retry-card" style="display:none">
+        <div class="d-flex align-center gap-1">
+            <span id="reconciler-selected-count" class="text-muted font-sm">0 executions selected</span>
+            <button id="reconciler-bulk-retry-btn" class="btn btn-primary" style="margin-left:auto">
+                Bulk Retry Selected
+            </button>
+        </div>
+        <div id="reconciler-retry-result" class="mt-1"></div>
+    </div>
+
+</div><!-- /panel-reconciler -->
 
 
 <!-- ============================================================
-     DIGEST TAB (placeholder)
+     TRACES TAB
+     ============================================================ -->
+<div id="panel-traces" class="tab-panel">
+
+    <div class="card">
+        <div class="card__title">Correlation Tracer</div>
+
+        <div class="form-group">
+            <label class="form-label">Search Type</label>
+            <div class="radio-group">
+                <label><input type="radio" name="tracer-type" value="guid" checked /> GUID</label>
+                <label><input type="radio" name="tracer-type" value="sis_id" /> SIS_ID</label>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Identifier</label>
+            <div class="d-flex gap-1">
+                <input type="text" id="tracer-identifier" class="form-control"
+                    placeholder="Enter GUID or SIS_ID..." />
+                <button id="tracer-search-btn" class="btn btn-primary" style="white-space:nowrap">
+                    Trace
+                </button>
+            </div>
+        </div>
+
+        <div id="tracer-diagnosis" class="d-none mt-1"
+            style="padding:0.5rem 0.75rem;border-radius:4px;font-size:0.85rem"></div>
+    </div>
+
+    <!-- Timeline -->
+    <div id="tracer-timeline-card" class="card d-none">
+        <div class="d-flex align-center gap-1 mb-1">
+            <div class="card__title" style="margin:0;border:none;padding:0">Event Timeline</div>
+            <span id="tracer-event-count" class="text-muted font-sm" style="margin-left:auto"></span>
+        </div>
+        <ol id="tracer-timeline" class="timeline-list"></ol>
+    </div>
+
+    <!-- Recent traces -->
+    <div class="card">
+        <div class="card__title">Recent Traces</div>
+        <div id="tracer-recent-list">
+            <p class="text-muted font-sm">No recent traces yet.</p>
+        </div>
+    </div>
+
+</div><!-- /panel-traces -->
+
+
+<!-- ============================================================
+     DIGEST TAB
      ============================================================ -->
 <div id="panel-digest" class="tab-panel">
+
+    <!-- Recommendations -->
     <div class="card">
-        <div class="card__title">Digest</div>
-        <p class="text-muted">Daily digest / scheduled reporting coming in Phase 2.</p>
-        <p class="text-muted font-sm">This tab will display a configurable daily summary of workflow activity,
-        failure trends, and worker health metrics delivered via email or Slack.</p>
+        <div class="d-flex align-center gap-1 mb-1">
+            <div class="card__title" style="margin:0;border:none;padding:0">Recommendations</div>
+            <button id="digest-refresh-btn" class="btn btn-outline btn-sm" style="margin-left:auto">
+                Refresh
+            </button>
+            <span id="digest-last-generated" class="text-muted font-sm"></span>
+        </div>
+        <div id="digest-recommendations">
+            <p class="text-muted font-sm">Loading recommendations...</p>
+        </div>
     </div>
-</div>
+
+    <!-- Workflow table -->
+    <div class="card">
+        <div class="card__title">Workflow Performance</div>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Workflow</th>
+                        <th>Total</th>
+                        <th>Failed</th>
+                        <th>Failure %</th>
+                        <th>Avg ms</th>
+                        <th>Trend</th>
+                    </tr>
+                </thead>
+                <tbody id="digest-workflows-tbody">
+                    <tr>
+                        <td colspan="6" class="text-center text-muted" style="padding:2rem">
+                            <span class="spinner"></span> Loading digest...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Regressions -->
+    <div id="digest-regressions-card" class="card d-none">
+        <div class="card__title" style="color:#b31d28">Performance Regressions</div>
+        <div id="digest-regressions-content"></div>
+    </div>
+
+</div><!-- /panel-digest -->
 
 {% endblock %}

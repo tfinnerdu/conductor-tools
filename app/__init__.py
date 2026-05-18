@@ -44,6 +44,10 @@ def create_app(config_override=None):
     from app.routes.batches import batches_bp
     from app.routes.diff import diff_bp
     from app.routes.secrets import secrets_bp
+    from app.routes.reconciler import reconciler_bp
+    from app.routes.tracer import tracer_bp
+    from app.routes.test_harness import test_harness_bp
+    from app.routes.digest import digest_bp
 
     app.register_blueprint(health_bp)
     app.register_blueprint(search_bp)
@@ -52,6 +56,10 @@ def create_app(config_override=None):
     app.register_blueprint(batches_bp)
     app.register_blueprint(diff_bp)
     app.register_blueprint(secrets_bp)
+    app.register_blueprint(reconciler_bp)
+    app.register_blueprint(tracer_bp)
+    app.register_blueprint(test_harness_bp)
+    app.register_blueprint(digest_bp)
 
     # Register main UI route
     from app.routes import main_bp

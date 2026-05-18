@@ -236,6 +236,34 @@ class ConductorClient:
             return _mock_task_performance(task_type)
 
     # ------------------------------------------------------------------
+    # Reconciler
+    # ------------------------------------------------------------------
+
+    def get_failures_by_task_type(self, workflow_name: str, hours_back: int = 24) -> dict:
+        """Return failures grouped by the last-failed task type.
+
+        In live mode, searches for FAILED executions and groups them.
+        Mock mode returns realistic Doane-flavored data.
+        """
+        if self._mock_mode:
+            return _mock_failures_by_task_type(workflow_name, hours_back)
+
+        try:
+            query_parts = ["status='FAILED'"]
+            if workflow_name:
+                query_parts.append(f"workflowType='{workflow_name}'")
+            result = self.search(
+                query=" AND ".join(query_parts),
+                status="FAILED",
+                workflow_type=workflow_name,
+                size=500,
+            )
+            executions = result.get("results", [])
+            return _group_failures_by_task_type(executions, workflow_name)
+        except Exception:
+            return _mock_failures_by_task_type(workflow_name, hours_back)
+
+    # ------------------------------------------------------------------
     # Secrets
     # ------------------------------------------------------------------
 
@@ -518,6 +546,95 @@ def _mock_secret_names() -> list:
         "SFTP_PRIVATE_KEY",
         "OAUTH_CLIENT_SECRET",
     ]
+
+
+def _mock_failures_by_task_type(workflow_name: str, hours_back: int) -> dict:
+    """Return realistic Doane-flavored mock failure data grouped by task type."""
+    groups = [
+        {
+            "task_type": "ethos_get_person",
+            "count": 12,
+            "reasons": {
+                "HTTP_404": 7,
+                "HTTP_429": 3,
+                "TIMEOUT": 2,
+            },
+            "workflow_ids": [f"mock-fail-ethos-{i:04d}" for i in range(12)],
+        },
+        {
+            "task_type": "colleague_upsert_person",
+            "count": 5,
+            "reasons": {
+                "DUPLICATE_VALUE: Person already exists with SIS_ID": 4,
+                "VALIDATION_ERROR: Missing required field dateOfBirth": 1,
+            },
+            "workflow_ids": [f"mock-fail-colleague-{i:04d}" for i in range(5)],
+        },
+        {
+            "task_type": "salesforce_sync",
+            "count": 3,
+            "reasons": {
+                "HTTP_500": 2,
+                "TIMEOUT": 1,
+            },
+            "workflow_ids": [f"mock-fail-sf-{i:04d}" for i in range(3)],
+        },
+    ]
+    if workflow_name and workflow_name not in (
+        "student_enrollment", "financial_aid_processing", "employee_onboarding"
+    ):
+        groups = []
+
+    return {
+        "workflow_name": workflow_name or None,
+        "hours_back": hours_back,
+        "groups": groups,
+        "total_failures": sum(g["count"] for g in groups),
+    }
+
+
+def _group_failures_by_task_type(executions: list, workflow_name: str) -> dict:
+    """Group a list of FAILED executions by last-failed task type."""
+    from collections import defaultdict
+
+    groups_map: dict = defaultdict(lambda: {"count": 0, "reasons": {}, "workflow_ids": []})
+
+    for ex in executions:
+        tasks = ex.get("tasks", [])
+        failed_task = None
+        for t in tasks:
+            if t.get("status") == "FAILED":
+                failed_task = t
+                break
+        if failed_task is None and tasks:
+            failed_task = tasks[-1]
+
+        task_type = (failed_task or {}).get("taskType", "unknown")
+        reason = (failed_task or {}).get("reasonForIncompletion") or ""
+        wf_id = ex.get("workflowId", "unknown")
+
+        entry = groups_map[task_type]
+        entry["count"] += 1
+        entry["workflow_ids"].append(wf_id)
+        if reason:
+            entry["reasons"][reason] = entry["reasons"].get(reason, 0) + 1
+
+    groups = [
+        {
+            "task_type": tt,
+            "count": data["count"],
+            "reasons": data["reasons"],
+            "workflow_ids": data["workflow_ids"],
+        }
+        for tt, data in sorted(groups_map.items(), key=lambda x: x[1]["count"], reverse=True)
+    ]
+
+    return {
+        "workflow_name": workflow_name or None,
+        "hours_back": 24,
+        "groups": groups,
+        "total_failures": sum(g["count"] for g in groups),
+    }
 
 
 def _compute_performance(task_type: str, executions: list) -> dict:
