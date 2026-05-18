@@ -151,7 +151,7 @@ def create_saved_search():
 def delete_saved_search(search_id):
     """Delete a saved search by ID."""
     try:
-        saved = SavedSearch.query.get(search_id)
+        saved = db.session.get(SavedSearch, search_id)
         if not saved:
             return _error("Not found", "NOT_FOUND", 404)
         db.session.delete(saved)
