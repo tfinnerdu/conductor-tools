@@ -15,6 +15,11 @@ import time
 
 import requests
 
+# Module-level imports so tests can patch app.health_checks.db and
+# app.health_checks.ConductorClient directly without chasing lazy imports.
+from app import db
+from app.conductor_client import ConductorClient
+
 
 def check_conductor_live() -> dict:
     """Lightweight probe: GET CONDUCTOR_URL/health with a 2s timeout.
@@ -58,7 +63,6 @@ def check_db() -> dict:
     """
     t0 = time.time()
     try:
-        from app import db
         from sqlalchemy import text
         db.session.execute(text("SELECT 1"))
         latency_ms = round((time.time() - t0) * 1000)
@@ -80,7 +84,6 @@ def check_conductor_functional() -> dict:
 
     t0 = time.time()
     try:
-        from app.conductor_client import ConductorClient
         client = ConductorClient()
         defs = client.list_workflow_definitions()
         latency_ms = round((time.time() - t0) * 1000)
