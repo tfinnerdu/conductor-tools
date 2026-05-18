@@ -68,6 +68,21 @@ def _compute_workflow_stats(client: ConductorClient, wf_name: str, hours_back: i
     }
 
 
+def _compute_trend(current_avg_ms: int, history_avgs: list) -> str:
+    """Ratio-based trend label from a list of historical averages."""
+    if not history_avgs:
+        return "new"
+    hist_avg = sum(history_avgs) / len(history_avgs)
+    if hist_avg == 0:
+        return "stable"
+    ratio = current_avg_ms / hist_avg
+    if ratio > 1.15:
+        return "up"
+    if ratio < 0.85:
+        return "down"
+    return "stable"
+
+
 def _determine_trend(wf_name: str, current_avg_ms: int, cache: dict) -> str:
     """Compare current avg_ms against recent cached days to determine trend."""
     history_avgs = []
@@ -80,17 +95,7 @@ def _determine_trend(wf_name: str, current_avg_ms: int, cache: dict) -> str:
 
     if not history_avgs:
         return "new"
-
-    hist_avg = sum(history_avgs) / len(history_avgs)
-    if hist_avg == 0:
-        return "stable"
-
-    ratio = current_avg_ms / hist_avg
-    if ratio > 1.15:
-        return "up"
-    if ratio < 0.85:
-        return "down"
-    return "stable"
+    return _compute_trend(current_avg_ms, history_avgs)
 
 
 def generate_daily_digest(date_str: str = None, hours_back: int = 24) -> dict:
@@ -264,27 +269,7 @@ def workflow_history(name: str):
                     )
                     break
         else:
-            # No cached data — generate a stub entry so the response is complete
             history.append({"date": date_str, "total": 0, "failed": 0, "avg_ms": 0})
-
-    if not history:
-        # If there's no cache at all, compute today on-demand to give a starting point
-        try:
-            digest = generate_daily_digest()
-            for wf in digest.get("workflows", []):
-                if wf.get("name") == name:
-                    history.append(
-                        {
-                            "date": _today_str(),
-                            "total": wf.get("total", 0),
-                            "failed": wf.get("failed", 0),
-                            "avg_ms": wf.get("avg_ms", 0),
-                        }
-                    )
-                    break
-        except Exception as exc:
-            current_app.logger.error("workflow_history error: %s", exc, exc_info=True)
-            return _error(str(exc), "HISTORY_ERROR", 500)
 
     current_app.logger.info(
         "workflow_history: name=%s days=%d", name, len(history)
