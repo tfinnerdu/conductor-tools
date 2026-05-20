@@ -10,6 +10,16 @@ $ErrorActionPreference = 'Stop'
 $Root   = $PSScriptRoot
 $Log    = "$Root\.hub-logs\app.log"
 $LogErr = "$Root\.hub-logs\app.err"
+$Port   = if ($env:PORT) { $env:PORT } else { '5000' }
+
+# Stop any existing instance holding the port (and the log file)
+$listener = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue |
+    Select-Object -First 1 -ExpandProperty OwningProcess
+if ($listener) {
+    Write-Host "Stopping existing process on port $Port (PID $listener)..." -ForegroundColor Yellow
+    Stop-Process -Id $listener -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Milliseconds 500
+}
 
 # Create log dir, wipe old logs
 New-Item -ItemType Directory -Path "$Root\.hub-logs" -Force | Out-Null
@@ -59,7 +69,6 @@ $IP = (Get-NetIPAddress -AddressFamily IPv4 |
                    $_.IPAddress -ne '127.0.0.1' } |
     Select-Object -First 1).IPAddress
 
-$Port = if ($env:PORT) { $env:PORT } else { '5000' }
 Write-Host "---"
 Write-Host "Conductor Companion"
 Write-Host "  Port:       $Port"
