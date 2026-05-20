@@ -10,7 +10,7 @@ $ErrorActionPreference = 'Stop'
 $Root   = $PSScriptRoot
 $Log    = "$Root\.hub-logs\app.log"
 $LogErr = "$Root\.hub-logs\app.err"
-$Port   = if ($env:PORT) { $env:PORT } else { '5000' }
+$Port   = '5007'  # default; refreshed after .env loads below
 
 # Stop any existing instance holding the port (and the log file)
 $listener = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue |
@@ -60,6 +60,9 @@ Get-Content "$Root\.env" | ForEach-Object {
 }
 
 $env:FLASK_DEBUG = if ($env:FLASK_ENV -eq 'production') { '0' } else { '1' }
+
+# Refresh port from .env now that it's loaded (never use hub-injected PORT)
+if ($env:PORT) { $Port = $env:PORT }
 
 # Get LAN IP (skip link-local, vEthernet, WSL, loopback)
 $IP = (Get-NetIPAddress -AddressFamily IPv4 |
