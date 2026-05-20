@@ -1,31 +1,61 @@
-# Conductor Companion - Local Development Startup Script
-# Wipe log files
-if (Test-Path "app.log") { Remove-Item "app.log" -Force }
-if (Test-Path "app.log.err") { Remove-Item "app.log.err" -Force }
+# Conductor Companion -- local dev launcher
+param([switch]$ForceDeps)
 
-# Load environment from .env if present
-if (Test-Path ".env") {
-    Get-Content ".env" | ForEach-Object {
-        if ($_ -match "^\s*([^#][^=]+)=(.*)$") {
-            $name = $matches[1].Trim()
-            $value = $matches[2].Trim()
-            [System.Environment]::SetEnvironmentVariable($name, $value, "Process")
+$ErrorActionPreference = 'Stop'
+$Root = $PSScriptRoot
+$Log = "$Root\.hub-logs\app.log"
+$LogErr = "$Root\.hub-logs\app.err"
+
+# Create log dir, wipe old logs
+New-Item -ItemType Directory -Path "$Root\.hub-logs" -Force | Out-Null
+if (Test-Path $Log)    { Remove-Item $Log }
+if (Test-Path $LogErr) { Remove-Item $LogErr }
+
+# Activate venv -- create it automatically if missing
+$Venv = "$Root\.venv\Scripts\Activate.ps1"
+if (-not (Test-Path $Venv)) {
+    Write-Host "Creating virtual environment..." -ForegroundColor Cyan
+    python -m venv "$Root\.venv"
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "ERROR: failed to create .venv. Is Python in PATH?" -ForegroundColor Red
+        exit 1
+    }
+}
+. $Venv
+
+# Install deps if requested or venv looks empty
+if ($ForceDeps -or (-not (Test-Path "$Root\.venv\Lib\site-packages\flask"))) {
+    Write-Host "Installing dependencies..." -ForegroundColor Cyan
+    pip install -r "$Root\requirements.txt" --quiet
+}
+
+# Load .env into the process environment so it takes precedence over hub-injected vars
+$EnvFile = "$Root\.env"
+if (Test-Path $EnvFile) {
+    Get-Content $EnvFile | ForEach-Object {
+        if ($_ -match '^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$') {
+            $key = $matches[1]
+            $val = $matches[2].Trim().Trim('"').Trim("'")
+            [System.Environment]::SetEnvironmentVariable($key, $val, 'Process')
         }
     }
 }
 
-# Set FLASK_DEBUG via if/else
-if ($env:FLASK_DEBUG -eq "true") {
-    $env:FLASK_DEBUG = "1"
-} else {
-    $env:FLASK_DEBUG = "0"
-}
+# Set FLASK_DEBUG (force on for local unless explicitly running production)
+$env:FLASK_DEBUG = if ($env:FLASK_ENV -eq 'production') { '0' } else { '1' }
 
-Write-Host "Starting Conductor Companion..."
-Write-Host "CONDUCTOR_URL: $env:CONDUCTOR_URL"
+# Get LAN IP (skip 169.254.x.x, vEthernet, WSL)
+$IP = (Get-NetIPAddress -AddressFamily IPv4 |
+    Where-Object { $_.IPAddress -notlike '169.254.*' -and
+                   $_.InterfaceAlias -notlike '*vEthernet*' -and
+                   $_.InterfaceAlias -notlike '*WSL*' -and
+                   $_.IPAddress -ne '127.0.0.1' } |
+    Select-Object -First 1).IPAddress
 
-# Run health check after startup (optional smoke test)
-# curl.exe -s http://localhost:5000/health
+$Port = if ($env:PORT) { $env:PORT } else { '5000' }
+Write-Host "Starting Conductor Companion on http://${IP}:${Port}" -ForegroundColor Green
+Write-Host "CONDUCTOR_URL: $env:CONDUCTOR_URL" -ForegroundColor DarkGray
 
-# Start the app unbuffered
-python -u run.py 2>&1 | Tee-Object -FilePath "app.log"
+# Continue (not Stop) so Python's stderr logging doesn't trip PowerShell's error handler
+$ErrorActionPreference = 'Continue'
+python -u "$Root\run.py" >> $Log 2>> $LogErr
