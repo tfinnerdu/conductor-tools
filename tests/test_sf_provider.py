@@ -7,7 +7,7 @@ import pytest
 
 class TestConfigured:
     def test_false_when_no_env(self, monkeypatch):
-        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN", "SF_ACCESS_TOKEN", "SF_INSTANCE_URL"):
+        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN"):
             monkeypatch.delenv(k, raising=False)
         from app import sf_provider
         assert sf_provider._configured() is False
@@ -16,31 +16,27 @@ class TestConfigured:
         monkeypatch.setenv("SF_USERNAME", "user@doane.edu")
         monkeypatch.setenv("SF_PASSWORD", "pass")
         monkeypatch.setenv("SF_SECURITY_TOKEN", "token123")
-        monkeypatch.delenv("SF_ACCESS_TOKEN", raising=False)
-        monkeypatch.delenv("SF_INSTANCE_URL", raising=False)
         from app import sf_provider
         assert sf_provider._configured() is True
 
-    def test_true_with_access_token_and_instance_url(self, monkeypatch):
-        monkeypatch.delenv("SF_USERNAME", raising=False)
-        monkeypatch.delenv("SF_PASSWORD", raising=False)
-        monkeypatch.delenv("SF_SECURITY_TOKEN", raising=False)
-        monkeypatch.setenv("SF_ACCESS_TOKEN", "bearer-token")
-        monkeypatch.setenv("SF_INSTANCE_URL", "https://myinstance.salesforce.com")
-        from app import sf_provider
-        assert sf_provider._configured() is True
-
-    def test_false_with_only_access_token(self, monkeypatch):
-        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN", "SF_INSTANCE_URL"):
+    def test_false_with_only_username(self, monkeypatch):
+        monkeypatch.setenv("SF_USERNAME", "user@doane.edu")
+        for k in ("SF_PASSWORD", "SF_SECURITY_TOKEN"):
             monkeypatch.delenv(k, raising=False)
-        monkeypatch.setenv("SF_ACCESS_TOKEN", "bearer-token")
+        from app import sf_provider
+        assert sf_provider._configured() is False
+
+    def test_false_with_username_and_password_only(self, monkeypatch):
+        monkeypatch.setenv("SF_USERNAME", "user@doane.edu")
+        monkeypatch.setenv("SF_PASSWORD", "pass")
+        monkeypatch.delenv("SF_SECURITY_TOKEN", raising=False)
         from app import sf_provider
         assert sf_provider._configured() is False
 
 
 class TestFindPersonBySisId:
     def test_mock_returns_records(self, monkeypatch):
-        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN", "SF_ACCESS_TOKEN", "SF_INSTANCE_URL"):
+        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN"):
             monkeypatch.delenv(k, raising=False)
         from app import sf_provider
         result = sf_provider.find_person_by_sis_id("STU12345")
@@ -51,7 +47,7 @@ class TestFindPersonBySisId:
         assert "diagnosis" in result
 
     def test_mock_healthy_record(self, monkeypatch):
-        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN", "SF_ACCESS_TOKEN", "SF_INSTANCE_URL"):
+        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN"):
             monkeypatch.delenv(k, raising=False)
         from app import sf_provider
         result = sf_provider.find_person_by_sis_id("STU12345")
@@ -60,7 +56,7 @@ class TestFindPersonBySisId:
         assert "healthy" in result["diagnosis"].lower()
 
     def test_mock_dup_returns_two_records(self, monkeypatch):
-        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN", "SF_ACCESS_TOKEN", "SF_INSTANCE_URL"):
+        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN"):
             monkeypatch.delenv(k, raising=False)
         from app import sf_provider
         result = sf_provider.find_person_by_sis_id("dup-student")
@@ -69,7 +65,7 @@ class TestFindPersonBySisId:
         assert "DUPLICATE" in result["diagnosis"]
 
     def test_mock_notfound_returns_zero(self, monkeypatch):
-        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN", "SF_ACCESS_TOKEN", "SF_INSTANCE_URL"):
+        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN"):
             monkeypatch.delenv(k, raising=False)
         from app import sf_provider
         result = sf_provider.find_person_by_sis_id("notfound-student")
@@ -77,7 +73,7 @@ class TestFindPersonBySisId:
         assert result["status"] == "error"
 
     def test_mock_missing_sis_id_is_warning(self, monkeypatch):
-        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN", "SF_ACCESS_TOKEN", "SF_INSTANCE_URL"):
+        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN"):
             monkeypatch.delenv(k, raising=False)
         from app import sf_provider
         result = sf_provider.find_person_by_sis_id("missing-person")
@@ -87,7 +83,7 @@ class TestFindPersonBySisId:
 
 class TestFindPersonByGuid:
     def test_mock_returns_records(self, monkeypatch):
-        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN", "SF_ACCESS_TOKEN", "SF_INSTANCE_URL"):
+        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN"):
             monkeypatch.delenv(k, raising=False)
         from app import sf_provider
         result = sf_provider.find_person_by_guid("550e8400-e29b-41d4-a716-446655440000")
@@ -96,7 +92,7 @@ class TestFindPersonByGuid:
         assert result["record_count"] >= 1
 
     def test_mock_notfound_returns_empty(self, monkeypatch):
-        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN", "SF_ACCESS_TOKEN", "SF_INSTANCE_URL"):
+        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN"):
             monkeypatch.delenv(k, raising=False)
         from app import sf_provider
         result = sf_provider.find_person_by_guid("notfound-guid-12345")
@@ -104,7 +100,7 @@ class TestFindPersonByGuid:
         assert result["status"] == "error"
 
     def test_mock_result_has_ethos_guid_field(self, monkeypatch):
-        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN", "SF_ACCESS_TOKEN", "SF_INSTANCE_URL"):
+        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN"):
             monkeypatch.delenv(k, raising=False)
         from app import sf_provider
         result = sf_provider.find_person_by_guid("test-guid-12345")
@@ -115,28 +111,28 @@ class TestFindPersonByGuid:
 
 class TestFindDuplicateAccounts:
     def test_mock_returns_list(self, monkeypatch):
-        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN", "SF_ACCESS_TOKEN", "SF_INSTANCE_URL"):
+        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN"):
             monkeypatch.delenv(k, raising=False)
         from app import sf_provider
         result = sf_provider.find_duplicate_accounts("STU12345")
         assert isinstance(result, list)
 
     def test_mock_dup_returns_two(self, monkeypatch):
-        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN", "SF_ACCESS_TOKEN", "SF_INSTANCE_URL"):
+        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN"):
             monkeypatch.delenv(k, raising=False)
         from app import sf_provider
         result = sf_provider.find_duplicate_accounts("dup-student")
         assert len(result) == 2
 
     def test_mock_healthy_returns_one(self, monkeypatch):
-        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN", "SF_ACCESS_TOKEN", "SF_INSTANCE_URL"):
+        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN"):
             monkeypatch.delenv(k, raising=False)
         from app import sf_provider
         result = sf_provider.find_duplicate_accounts("STU00001")
         assert len(result) == 1
 
     def test_mock_notfound_returns_empty(self, monkeypatch):
-        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN", "SF_ACCESS_TOKEN", "SF_INSTANCE_URL"):
+        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN"):
             monkeypatch.delenv(k, raising=False)
         from app import sf_provider
         result = sf_provider.find_duplicate_accounts("notfound-x")
@@ -145,7 +141,7 @@ class TestFindDuplicateAccounts:
 
 class TestGetAccount:
     def test_mock_returns_dict(self, monkeypatch):
-        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN", "SF_ACCESS_TOKEN", "SF_INSTANCE_URL"):
+        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN"):
             monkeypatch.delenv(k, raising=False)
         from app import sf_provider
         result = sf_provider.get_account("SF001AAA")
@@ -153,7 +149,7 @@ class TestGetAccount:
         assert result["Id"] == "SF001AAA"
 
     def test_mock_has_required_fields(self, monkeypatch):
-        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN", "SF_ACCESS_TOKEN", "SF_INSTANCE_URL"):
+        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN"):
             monkeypatch.delenv(k, raising=False)
         from app import sf_provider
         result = sf_provider.get_account("SF001AAA")
@@ -165,7 +161,7 @@ class TestGetAccount:
 
 class TestCheckHealth:
     def test_not_configured_returns_ok(self, monkeypatch):
-        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN", "SF_ACCESS_TOKEN", "SF_INSTANCE_URL"):
+        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN"):
             monkeypatch.delenv(k, raising=False)
         from app import sf_provider
         result = sf_provider.check_health()
@@ -174,7 +170,9 @@ class TestCheckHealth:
         assert result["latency_ms"] is None
 
     def test_configured_reachable(self, monkeypatch):
-        monkeypatch.setenv("SF_ACCESS_TOKEN", "bearer-token")
+        monkeypatch.setenv("SF_USERNAME", "user@doane.edu")
+        monkeypatch.setenv("SF_PASSWORD", "pass")
+        monkeypatch.setenv("SF_SECURITY_TOKEN", "tok")
         monkeypatch.setenv("SF_INSTANCE_URL", "https://myinstance.salesforce.com")
         from app import sf_provider
 
@@ -188,7 +186,9 @@ class TestCheckHealth:
                 assert result["detail"] == "reachable"
 
     def test_configured_timeout(self, monkeypatch):
-        monkeypatch.setenv("SF_ACCESS_TOKEN", "bearer-token")
+        monkeypatch.setenv("SF_USERNAME", "user@doane.edu")
+        monkeypatch.setenv("SF_PASSWORD", "pass")
+        monkeypatch.setenv("SF_SECURITY_TOKEN", "tok")
         monkeypatch.setenv("SF_INSTANCE_URL", "https://myinstance.salesforce.com")
         from app import sf_provider
         import requests as req_lib
@@ -200,7 +200,9 @@ class TestCheckHealth:
                 assert result["detail"] == "timeout"
 
     def test_configured_generic_exception(self, monkeypatch):
-        monkeypatch.setenv("SF_ACCESS_TOKEN", "bearer-token")
+        monkeypatch.setenv("SF_USERNAME", "user@doane.edu")
+        monkeypatch.setenv("SF_PASSWORD", "pass")
+        monkeypatch.setenv("SF_SECURITY_TOKEN", "tok")
         monkeypatch.setenv("SF_INSTANCE_URL", "https://myinstance.salesforce.com")
         from app import sf_provider
 
@@ -215,10 +217,10 @@ class TestSfProviderRealPaths:
     """Test real API paths with mocked requests."""
 
     def _setup_live_env(self, monkeypatch):
-        monkeypatch.setenv("SF_ACCESS_TOKEN", "bearer-token")
+        monkeypatch.setenv("SF_USERNAME", "user@doane.edu")
+        monkeypatch.setenv("SF_PASSWORD", "pass")
+        monkeypatch.setenv("SF_SECURITY_TOKEN", "tok")
         monkeypatch.setenv("SF_INSTANCE_URL", "https://myinstance.salesforce.com")
-        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN"):
-            monkeypatch.delenv(k, raising=False)
 
     def test_find_person_by_sis_id_live_success(self, monkeypatch):
         self._setup_live_env(monkeypatch)
@@ -327,27 +329,45 @@ class TestSfProviderRealPaths:
                 result = sf_provider.get_account("SF001AAA")
                 assert isinstance(result, dict)
 
-    def test_get_access_token_with_direct_token(self, monkeypatch):
-        monkeypatch.setenv("SF_ACCESS_TOKEN", "direct-bearer-token")
-        from app import sf_provider
-        token = sf_provider._get_access_token()
-        assert token == "direct-bearer-token"
-
     def test_get_access_token_via_oauth_flow(self, monkeypatch):
-        """Tests the username/password OAuth flow."""
-        monkeypatch.delenv("SF_ACCESS_TOKEN", raising=False)
+        """Username/password OAuth flow fetches and caches a token."""
         monkeypatch.setenv("SF_USERNAME", "user@doane.edu")
         monkeypatch.setenv("SF_PASSWORD", "pass")
         monkeypatch.setenv("SF_SECURITY_TOKEN", "tok")
         from app import sf_provider
 
+        # Clear cache so the OAuth call is not skipped
+        sf_provider._token_cache.update({"token": None, "instance_url": None, "expires_at": 0.0})
+
         mock_resp = MagicMock()
-        mock_resp.json.return_value = {"access_token": "oauth-token-123"}
+        mock_resp.json.return_value = {
+            "access_token": "oauth-token-123",
+            "instance_url": "https://doane.my.salesforce.com",
+        }
         mock_resp.raise_for_status.return_value = None
 
         with patch("app.sf_provider.requests.post", return_value=mock_resp):
             token = sf_provider._get_access_token()
             assert token == "oauth-token-123"
+            assert sf_provider._token_cache["instance_url"] == "https://doane.my.salesforce.com"
+
+    def test_get_access_token_returns_cached_token(self, monkeypatch):
+        """Cached token is returned without making an HTTP call."""
+        from app import sf_provider
+        import time as t
+
+        sf_provider._token_cache.update({
+            "token": "cached-token-abc",
+            "instance_url": "https://doane.my.salesforce.com",
+            "expires_at": t.time() + 3000,
+        })
+
+        with patch("app.sf_provider.requests.post") as mock_post:
+            token = sf_provider._get_access_token()
+            assert token == "cached-token-abc"
+            mock_post.assert_not_called()
+
+        sf_provider._token_cache.update({"token": None, "instance_url": None, "expires_at": 0.0})
 
     def test_build_result_zero_records(self):
         from app import sf_provider

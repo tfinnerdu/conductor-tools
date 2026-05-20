@@ -14,41 +14,48 @@ NOT added as a dependency here per Doane standards; add to requirements.txt
 and swap the SOQL helpers below when ready.
 """
 import os
+import time
 import uuid
 
 import requests
 
+# Token cache — shared across requests, refreshed when within 5 min of expiry
+_token_cache: dict = {"token": None, "instance_url": None, "expires_at": 0.0}
+
 
 def _configured() -> bool:
-    """Return True when sufficient Salesforce credentials are present.
-
-    Accepts either:
-      - SF_USERNAME + SF_PASSWORD + SF_SECURITY_TOKEN   (username/password flow)
-      - SF_ACCESS_TOKEN + SF_INSTANCE_URL               (pre-issued bearer token)
-    """
-    has_user_pass = (
+    """Return True when Salesforce credentials are present (username/password flow)."""
+    return bool(
         os.environ.get("SF_USERNAME")
         and os.environ.get("SF_PASSWORD")
         and os.environ.get("SF_SECURITY_TOKEN")
     )
-    has_token = os.environ.get("SF_ACCESS_TOKEN") and os.environ.get("SF_INSTANCE_URL")
-    return bool(has_user_pass or has_token)
 
 
 def _get_instance_url() -> str:
+    """Return the Salesforce instance URL.
+
+    Prefers the cached value from the last OAuth response (so SF_INSTANCE_URL
+    is not required when using the username/password flow).
+    """
+    if _token_cache["instance_url"]:
+        return _token_cache["instance_url"]
     return os.environ.get("SF_INSTANCE_URL", "")
 
 
 def _get_access_token() -> str:
-    """Return a bearer token.
+    """Return a valid bearer token, fetching a new one only when expired.
 
-    When SF_ACCESS_TOKEN is set, use it directly.
-    Otherwise attempt username/password OAuth flow.
-    # TODO(salesforce): swap for client_credentials or JWT flow when available
+    Uses the OAuth2 username/password flow with a Connected App
+    (SF_CLIENT_ID + SF_CLIENT_SECRET). Token is cached for 90 minutes;
+    Salesforce issues 2-hour tokens so this gives a safe refresh buffer.
+    The login response also populates _token_cache["instance_url"] so
+    SF_INSTANCE_URL does not need to be set separately.
+    # TODO(salesforce): migrate to JWT bearer or client_credentials flow
+    # when a service-account Connected App is provisioned at Doane.
     """
-    token = os.environ.get("SF_ACCESS_TOKEN")
-    if token:
-        return token
+    if _token_cache["token"] and time.time() < _token_cache["expires_at"]:
+        return _token_cache["token"]
 
     login_url = os.environ.get("SF_LOGIN_URL", "https://login.salesforce.com")
     payload = {
@@ -61,7 +68,11 @@ def _get_access_token() -> str:
     resp = requests.post(f"{login_url}/services/oauth2/token", data=payload, timeout=10)
     resp.raise_for_status()
     data = resp.json()
-    return data["access_token"]
+
+    _token_cache["token"] = data["access_token"]
+    _token_cache["instance_url"] = data.get("instance_url", "")
+    _token_cache["expires_at"] = time.time() + 5400  # 90 min
+    return _token_cache["token"]
 
 
 def _soql(query: str) -> dict:

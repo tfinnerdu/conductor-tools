@@ -189,10 +189,17 @@ class TestSalesforceApiContracts:
     """CONTRACT: Salesforce REST API call shapes and SOQL patterns."""
 
     def _sf_env(self, monkeypatch):
-        monkeypatch.setenv("SF_ACCESS_TOKEN", "test-access-token")
+        import time
+        monkeypatch.setenv("SF_USERNAME", "svc@doane.edu")
+        monkeypatch.setenv("SF_PASSWORD", "pass")
+        monkeypatch.setenv("SF_SECURITY_TOKEN", "tok")
         monkeypatch.setenv("SF_INSTANCE_URL", "https://doane.my.salesforce.com")
-        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN"):
-            monkeypatch.delenv(k, raising=False)
+        from app import sf_provider
+        sf_provider._token_cache.update({
+            "token": "test-access-token",
+            "instance_url": "https://doane.my.salesforce.com",
+            "expires_at": time.time() + 3000,
+        })
 
     def test_soql_query_url_uses_v59(self, monkeypatch):
         """CONTRACT: SOQL queries hit /services/data/v59.0/query"""
@@ -316,8 +323,7 @@ class TestSalesforceMockFieldContracts:
     """
 
     def setup_method(self):
-        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN",
-                  "SF_ACCESS_TOKEN", "SF_INSTANCE_URL"):
+        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN", "SF_INSTANCE_URL"):
             os.environ.pop(k, None)
 
     def test_mock_sis_id_field_name(self):
