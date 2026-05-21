@@ -76,10 +76,6 @@ def _get_access_token() -> str:
 
 
 def _soql(query: str) -> dict:
-    """Execute a SOQL query via the Salesforce REST API.
-
-    Returns the standard SF REST response: {totalSize, done, records}.
-    """
     instance_url = _get_instance_url()
     token = _get_access_token()
     resp = requests.get(
@@ -93,20 +89,12 @@ def _soql(query: str) -> dict:
 
 
 def find_person_by_sis_id(sis_id: str) -> dict:
-    """Find a Salesforce PersonAccount by SIS_ID__c external ID.
-
-    SOQL: SELECT Id, FirstName, LastName, SIS_ID__c, Ethos_Guid__c, PersonEmail
-          FROM Account WHERE SIS_ID__c = '{sis_id}' AND IsPersonAccount = true
-    Returns {records, record_count, status, diagnosis}.
-    # TODO(salesforce): confirm SIS_ID__c field API name on Account object
-    """
     if not _configured():
         return _mock_sis_lookup(sis_id)
-
     try:
         soql = (
             f"SELECT Id, FirstName, LastName, SIS_ID__c, Ethos_Guid__c, PersonEmail "
-            f"FROM Account WHERE SIS_ID__c = '{sis_id}' AND IsPersonAccount = true"  # TODO(salesforce): confirm IsPersonAccount field name
+            f"FROM Account WHERE SIS_ID__c = '{sis_id}' AND IsPersonAccount = true"
         )
         result = _soql(soql)
         records = result.get("records", [])
@@ -116,20 +104,12 @@ def find_person_by_sis_id(sis_id: str) -> dict:
 
 
 def find_person_by_guid(guid: str) -> dict:
-    """Find a Salesforce PersonAccount by Ethos GUID.
-
-    SOQL: SELECT Id, FirstName, LastName, SIS_ID__c, Ethos_Guid__c, PersonEmail
-          FROM Account WHERE Ethos_Guid__c = '{guid}' AND IsPersonAccount = true
-    Returns {records, record_count, status, diagnosis}.
-    # TODO(salesforce): confirm Ethos_Guid__c field API name on Account object
-    """
     if not _configured():
         return _mock_guid_lookup(guid)
-
     try:
         soql = (
             f"SELECT Id, FirstName, LastName, SIS_ID__c, Ethos_Guid__c, PersonEmail "
-            f"FROM Account WHERE Ethos_Guid__c = '{guid}' AND IsPersonAccount = true"  # TODO(salesforce): confirm Ethos_Guid__c field name
+            f"FROM Account WHERE Ethos_Guid__c = '{guid}' AND IsPersonAccount = true"
         )
         result = _soql(soql)
         records = result.get("records", [])
@@ -139,15 +119,8 @@ def find_person_by_guid(guid: str) -> dict:
 
 
 def find_duplicate_accounts(sis_id: str) -> list:
-    """Return all Account records matching a SIS_ID__c value (>1 = duplicate).
-
-    SOQL: SELECT Id, FirstName, LastName, SIS_ID__c, CreatedDate
-          FROM Account WHERE SIS_ID__c = '{sis_id}' AND IsPersonAccount = true
-    # TODO(salesforce): add ORDER BY CreatedDate for deterministic results
-    """
     if not _configured():
         return _mock_duplicate_lookup(sis_id)
-
     try:
         soql = (
             f"SELECT Id, FirstName, LastName, SIS_ID__c, CreatedDate "
@@ -161,14 +134,8 @@ def find_duplicate_accounts(sis_id: str) -> list:
 
 
 def get_account(sf_id: str) -> dict:
-    """Fetch a single Account record by Salesforce ID.
-
-    Real path: GET /sobjects/Account/{sf_id}
-    # TODO(salesforce): confirm which fields to retrieve via ?fields= param
-    """
     if not _configured():
         return _mock_account(sf_id)
-
     try:
         instance_url = _get_instance_url()
         token = _get_access_token()
@@ -184,17 +151,14 @@ def get_account(sf_id: str) -> dict:
 
 
 def check_health() -> dict:
-    """Read-only probe of Salesforce API availability."""
     if not _configured():
         return {"ok": True, "detail": "not_configured", "latency_ms": None}
-
-    import time
     t0 = time.time()
     try:
         instance_url = _get_instance_url()
         token = _get_access_token()
         resp = requests.get(
-            f"{instance_url}/services/data/v59.0/limits",  # TODO(salesforce): confirm lightweight health endpoint
+            f"{instance_url}/services/data/v59.0/limits",
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
             timeout=5,
         )
@@ -205,19 +169,12 @@ def check_health() -> dict:
             "detail": "reachable" if resp.status_code < 500 else f"http_{resp.status_code}",
         }
     except requests.Timeout:
-        import time as _time
-        return {"ok": False, "latency_ms": round((_time.time() - t0) * 1000), "detail": "timeout"}
+        return {"ok": False, "latency_ms": round((time.time() - t0) * 1000), "detail": "timeout"}
     except Exception as exc:
-        import time as _time
-        return {"ok": False, "latency_ms": round((_time.time() - t0) * 1000), "detail": str(exc)[:120]}
+        return {"ok": False, "latency_ms": round((time.time() - t0) * 1000), "detail": str(exc)[:120]}
 
-
-# ---------------------------------------------------------------------------
-# Shared result builder
-# ---------------------------------------------------------------------------
 
 def _build_result(records: list) -> dict:
-    """Build the standard provider result dict from a list of Account records."""
     count = len(records)
     if count == 0:
         status = "error"
@@ -227,108 +184,52 @@ def _build_result(records: list) -> dict:
         diagnosis = f"DUPLICATE: {count} records found — merge required"
     else:
         record = records[0]
-        if not record.get("SIS_ID__c"):  # TODO(salesforce): confirm SIS_ID__c field name
+        if not record.get("SIS_ID__c"):
             status = "warning"
             diagnosis = "Record exists but missing SIS_ID__c"
         else:
             status = "ok"
             diagnosis = "Record looks healthy"
+    return {"records": records, "record_count": count, "status": status, "diagnosis": diagnosis}
 
-    return {
-        "records": records,
-        "record_count": count,
-        "status": status,
-        "diagnosis": diagnosis,
-    }
-
-
-# ---------------------------------------------------------------------------
-# Mock fixtures — realistic Doane Salesforce Ed Cloud shapes
-# ---------------------------------------------------------------------------
 
 def _mock_sis_lookup(sis_id: str) -> dict:
-    """Return a mock SF SOQL result for SIS_ID__c lookup."""
     if "dup" in sis_id.lower():
         records = [
-            {
-                "Id": "SF001AAA",
-                "FirstName": "Jane",
-                "LastName": "Doe",
-                "SIS_ID__c": sis_id,  # TODO(salesforce): confirm SIS_ID__c field name
-                "Ethos_Guid__c": f"mock-guid-{sis_id}-1",  # TODO(salesforce): confirm Ethos_Guid__c field name
-                "PersonEmail": "jane.doe@doane.edu",  # TODO(salesforce): confirm PersonEmail field name
-            },
-            {
-                "Id": "SF002BBB",
-                "FirstName": "Jane",
-                "LastName": "Doe",
-                "SIS_ID__c": sis_id,
-                "Ethos_Guid__c": f"mock-guid-{sis_id}-2",
-                "PersonEmail": "jane.doe2@doane.edu",
-            },
+            {"Id": "SF001AAA", "FirstName": "Jane", "LastName": "Doe", "SIS_ID__c": sis_id,
+             "Ethos_Guid__c": f"mock-guid-{sis_id}-1", "PersonEmail": "jane.doe@doane.edu"},
+            {"Id": "SF002BBB", "FirstName": "Jane", "LastName": "Doe", "SIS_ID__c": sis_id,
+             "Ethos_Guid__c": f"mock-guid-{sis_id}-2", "PersonEmail": "jane.doe2@doane.edu"},
         ]
     elif "missing" in sis_id.lower():
-        records = [
-            {
-                "Id": "SF003CCC",
-                "FirstName": "John",
-                "LastName": "Smith",
-                "SIS_ID__c": None,  # TODO(salesforce): confirm SIS_ID__c field name
-                "Ethos_Guid__c": None,
-                "PersonEmail": None,
-            }
-        ]
+        records = [{"Id": "SF003CCC", "FirstName": "John", "LastName": "Smith",
+                    "SIS_ID__c": None, "Ethos_Guid__c": None, "PersonEmail": None}]
     elif "notfound" in sis_id.lower() or "404" in sis_id:
         records = []
     else:
-        records = [
-            {
-                "Id": "SF" + sis_id[-6:].upper().replace("-", "0"),
-                "FirstName": "Alex",
-                "LastName": "Student",
-                "SIS_ID__c": sis_id,  # TODO(salesforce): confirm SIS_ID__c field name
-                "Ethos_Guid__c": f"mock-guid-{sis_id}",  # TODO(salesforce): confirm Ethos_Guid__c field name
-                "PersonEmail": "alex.student@doane.edu",  # TODO(salesforce): confirm PersonEmail field name
-                "RecordTypeId": "PersonAccount",  # TODO(salesforce): confirm RecordTypeId value
-            }
-        ]
-
+        records = [{"Id": "SF" + sis_id[-6:].upper().replace("-", "0"), "FirstName": "Alex",
+                    "LastName": "Student", "SIS_ID__c": sis_id,
+                    "Ethos_Guid__c": f"mock-guid-{sis_id}", "PersonEmail": "alex.student@doane.edu",
+                    "RecordTypeId": "PersonAccount"}]
     return _build_result(records)
 
 
 def _mock_guid_lookup(guid: str) -> dict:
-    """Return a mock SF SOQL result for Ethos_Guid__c lookup."""
     if "notfound" in guid.lower():
         records = []
     else:
-        records = [
-            {
-                "Id": "SF" + guid[-6:].upper().replace("-", "0"),
-                "FirstName": "Alex",
-                "LastName": "Student",
-                "SIS_ID__c": "STU" + guid[-6:].upper().replace("-", "0"),  # TODO(salesforce): confirm SIS_ID__c field name
-                "Ethos_Guid__c": guid,  # TODO(salesforce): confirm Ethos_Guid__c field name
-                "PersonEmail": "alex.student@doane.edu",  # TODO(salesforce): confirm PersonEmail field name
-            }
-        ]
+        records = [{"Id": "SF" + guid[-6:].upper().replace("-", "0"), "FirstName": "Alex",
+                    "LastName": "Student", "SIS_ID__c": "STU" + guid[-6:].upper().replace("-", "0"),
+                    "Ethos_Guid__c": guid, "PersonEmail": "alex.student@doane.edu"}]
     return _build_result(records)
 
 
 def _mock_duplicate_lookup(sis_id: str) -> list:
-    """Return mock duplicate Account records."""
-    result = _mock_sis_lookup(sis_id)
-    return result.get("records", [])
+    return _mock_sis_lookup(sis_id).get("records", [])
 
 
 def _mock_account(sf_id: str) -> dict:
-    """Return a mock Account sobject record."""
-    return {
-        "Id": sf_id,
-        "FirstName": "Alex",
-        "LastName": "Student",
-        "SIS_ID__c": "STU" + sf_id[-6:].upper(),  # TODO(salesforce): confirm SIS_ID__c field name
-        "Ethos_Guid__c": f"mock-guid-{sf_id}",  # TODO(salesforce): confirm Ethos_Guid__c field name
-        "PersonEmail": "alex.student@doane.edu",  # TODO(salesforce): confirm PersonEmail field name
-        "IsPersonAccount": True,  # TODO(salesforce): confirm IsPersonAccount field name
-        "RecordType": {"Name": "Person Account"},  # TODO(salesforce): confirm RecordType shape
-    }
+    return {"Id": sf_id, "FirstName": "Alex", "LastName": "Student",
+            "SIS_ID__c": "STU" + sf_id[-6:].upper(), "Ethos_Guid__c": f"mock-guid-{sf_id}",
+            "PersonEmail": "alex.student@doane.edu", "IsPersonAccount": True,
+            "RecordType": {"Name": "Person Account"}}

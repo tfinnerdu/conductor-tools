@@ -279,30 +279,26 @@ Select a batch and click **Export CSV** to download a spreadsheet of every FAILE
 ### Version Comparison
 
 1. Select a **Workflow** from the dropdown. Version A and Version B dropdowns populate automatically with the available versions.
-2. Choose **Version A** and **Version B** — the two versions you want to compare. Typically A is the older version and B is the newer one, but the order is flexible.
+2. Choose **Version A** and **Version B** — the two versions you want to compare.
 3. Select a **Diff Mode**:
-   - **Full JSON** — compares the complete workflow definition JSON. Shows all differences including metadata, timeout settings, etc.
-   - **Tasks Only** — compares only the `tasks` array. Usually the most relevant mode for day-to-day changes.
-   - **Significant Changes** — filters the diff to show only lines where a task name, type, reference name, or input parameters changed. Omits whitespace and formatting noise.
+   - **Full JSON** — compares the complete workflow definition JSON.
+   - **Tasks Only** — compares only the `tasks` array.
+   - **Significant Changes** — filters to only lines where a task name, type, reference name, or input parameters changed.
 4. Click **Compare**.
 
 The diff renders below with color-coded lines:
 - **Green** — lines added in Version B
 - **Red** — lines removed from Version A
-- **Blue** — section headers from the diff output
+- **Blue** — section headers
 - **Gray** — unchanged context lines
-
-A summary above the diff shows the total count of additions and removals.
 
 ### Dependency Map
 
-Click **Load Dependency Map** to fetch a table of every workflow version and the task types it references. This gives a full picture of which workflows depend on which tasks. The table is searchable and sortable. Useful before making changes to a shared task type.
+Click **Load Dependency Map** to fetch a table of every workflow version and the task types it references. Useful before making changes to a shared task type.
 
 ### Impact Analysis
 
-If you are planning to modify a task type (rename it, change its input parameters, etc.), use Impact Analysis to find every workflow version that will be affected.
-
-Enter the **Task Type** name in the input field and click **Analyze Impact**. The result lists each affected workflow with its version number and the specific task reference names used within that workflow. Use this list to plan which workflow definitions need to be updated alongside the task change.
+Enter the **Task Type** name and click **Analyze Impact**. The result lists each affected workflow with its version number and the specific task reference names used within that workflow.
 
 ---
 
@@ -312,220 +308,129 @@ Enter the **Task Type** name in the input field and click **Analyze Impact**. Th
 
 ### Failure Summary
 
-When you open the tab, the app loads a summary of all failures in the configured time window. The summary section shows:
+Loads a summary of all failures in the configured time window grouped by workflow → task type → error code (e.g. `HTTP_404 x7`, `TIMEOUT x2`).
 
-- Total failure count across all workflows in the window
-- A breakdown by workflow name → task type → error code (e.g. `HTTP_404 x7`, `TIMEOUT x2`, `DUPLICATE_VALUE x1`)
-
-**Hours back dropdown:** Change the look-back window. Options: 6h, 24h (default), 48h, 72h. The summary reloads automatically when you change the window.
+**Hours back dropdown:** Options: 6h, 24h (default), 48h, 72h. The summary reloads when you change the window.
 
 ### Failures by Task Type Table
 
-Below the summary, a paginated table shows individual failure groups. Each row represents one task type that caused failures, with columns:
-
-- Task Type
-- Failure Count
-- Most Common Error Code
-- Workflow Name
-- Actions (Retry All, checkbox for bulk select)
-
-Click **Retry All** next to any row to retry every execution in that group immediately. A toast confirms how many were retried.
-
-Use pagination controls to move between pages of results.
+Paginated table of individual failure groups. Click **Retry All** next to any row to retry every execution in that group immediately.
 
 ### Bulk Retry
 
-Check one or more rows using the checkboxes on the left. A **Bulk Retry Selected** button appears at the bottom. Click it to retry all selected executions in a single API call. Maximum 500 executions per bulk retry call. The result reports how many were successfully retried and how many returned errors.
+Check one or more rows using the checkboxes. A **Bulk Retry Selected** button appears at the bottom. Maximum 500 executions per bulk retry call. The result reports how many were successfully retried and how many returned errors.
 
 ### Failure Detail
 
-Click any row in the table to expand detail for that failure group, or call the API directly:
+Click any row to expand detail, or call directly:
 
 ```
 GET /api/v1/reconciler/failures/<workflow_id>
 ```
 
-Detail includes:
-- The failed task type and reference name
-- The exact failure reason from Conductor
-- An extracted error code (e.g. `HTTP_404`, `TIMEOUT`, `DUPLICATE_VALUE`, `UNKNOWN_ERROR`)
-- The retry count for this execution
-- The workflow input payload (with `sisId` highlighted if present)
-
-### Reconciler Summary
-
-The `/api/v1/reconciler/summary` endpoint (available for direct API access) returns a hierarchical breakdown of all failures across all workflows, grouped by workflow → task type → error code. Useful for building dashboards or automated alerting.
+Detail includes: failed task type, exact failure reason, extracted error code (e.g. `HTTP_404`, `TIMEOUT`, `DUPLICATE_VALUE`), retry count, and workflow input with `sisId` highlighted if present.
 
 ---
 
 ## Traces Tab
 
-**What it does:** Follow a person's data through Conductor, Salesforce, and Ethos by searching with a Doane GUID or SIS_ID. A timeline shows every system event associated with that person in chronological order.
+**What it does:** Follow a person's data through Conductor, Salesforce, and Ethos by searching with a Doane GUID or SIS_ID.
 
 ### Tracing a Person
 
-1. Select the identifier type using the radio buttons: **GUID** (a UUID-format Ethos GUID) or **SIS_ID** (the Colleague/Banner SIS identifier).
+1. Select the identifier type: **GUID** (UUID-format Ethos GUID) or **SIS_ID** (Colleague/Banner identifier).
 2. Type the identifier in the text field.
 3. Click **Trace**.
 
-The app searches three systems simultaneously:
-- **Conductor** — any workflow execution that references the identifier in its input, correlation ID, or output
-- **Salesforce** — PersonAccount records matching the GUID or SIS_ID
-- **Ethos** — recent change notification events from the in-memory buffer
+The app searches three systems simultaneously: Conductor (workflow executions), Salesforce (PersonAccount records), and Ethos (recent change notification events from the in-memory buffer).
 
 ### Diagnosis Message
 
-Directly below the search form, a colored diagnosis message summarizes what was found in Salesforce:
-
 | Color | Meaning |
 |---|---|
-| 🟢 Green | Record found, SIS_ID__c is populated, data looks healthy |
-| 🟡 Yellow | Record found but has a warning (e.g. SIS_ID__c is missing or blank) |
-| 🔴 Red | No record found, or more than one record found (duplicate) |
+| 🟢 Green | Record found, SIS_ID__c populated, data looks healthy |
+| 🟡 Yellow | Record found but has a warning (e.g. SIS_ID__c missing) |
+| 🔴 Red | No record found, or duplicate records detected |
 
 ### Event Timeline
 
-The timeline lists all events sorted by timestamp, oldest first. Each event shows:
-
-- **System badge** — CONDUCTOR (navy), SALESFORCE (blue), or ETHOS (teal)
-- **Status icon** — ✓ (ok), ✗ (error), ⚠ (warning)
-- **Event name** — a short label describing what happened (e.g. "Workflow started", "PersonAccount found", "Ethos person.create")
-- **Detail** — additional context (workflow ID, record ID, error message, etc.)
-
-Conductor events include: workflow start, workflow end (completed or failed), and individual task failures when present.
-
-Salesforce events include the record lookup result — records found, ID, name, and SIS_ID__c value.
-
-Ethos events include any recent change notifications in the buffer that match the identifier (matched against both GUID and SIS_ID fields in the event payload).
-
-### Counts Summary
-
-Above the timeline, a summary line shows the total number of Conductor executions found, the Salesforce record count, and whether any Ethos events matched.
+Events sorted by timestamp, oldest first. Each event shows:
+- **System badge** — CONDUCTOR (navy), SALESFORCE (blue), ETHOS (teal)
+- **Status icon** — ✓ ok, ✗ error, ⚠ warning
+- **Event name** and **detail** string
 
 ### Recent Traces
 
-The **Recent Traces** card at the bottom of the tab shows the last 20 trace searches, newest first. Each entry shows:
-- The identifier searched
-- When the trace ran
-- How many Conductor hits were found
-- Whether any errors appeared in the timeline
-
-Click **Retrace** next to any entry to re-run that search with the current data.
+The last 20 trace searches. Click **Retrace** to re-run any previous search with current data.
 
 ---
 
 ## Digest Tab
 
-**What it does:** Show a daily performance summary across all watched workflows. Surfaces actionable recommendations, performance trends, and regressions in one view. The digest is pre-generated automatically at 06:00 UTC each day and cached in memory.
+**What it does:** Daily performance summary across all watched workflows with recommendations, trends, and regression detection.
 
 ### Recommendations
 
-The top card lists actionable recommendations, sorted with errors first and warnings below.
+**Error-level (red):** failure rate > 20%, workers down or no_workers.
+**Warning-level (orange):** failure rate 5–20%, slow_poll workers, performance regressions.
 
-**Error-level recommendations (red):**
-- A workflow has a failure rate above 20%
-- A worker task type has no registered pollers (`no_workers`)
-- A worker task type has not polled in 30+ seconds (`down`)
-
-**Warning-level recommendations (orange/yellow):**
-- A workflow has a failure rate above 5% but below 20%
-- A worker task type's last poll was 5–30 seconds ago (`slow_poll`)
-- A workflow is more than 50% slower than its 7-day average (regression)
-
-If no issues are detected, a green "No issues found" message is shown instead.
-
-Click **Refresh** to regenerate the recommendations on demand.
+Click **Refresh** to regenerate on demand. Auto-generated at **06:00 UTC daily**.
 
 ### Workflow Performance Table
-
-Each row is one workflow type. Columns:
 
 | Column | Description |
 |---|---|
 | Workflow | Workflow name |
-| Total | Total executions in the digest period |
+| Total | Executions in the digest period |
 | Failed | Count of FAILED executions |
-| Failure % | Failure rate — highlighted orange above 5%, red above 20% |
-| Avg ms | Average execution duration in milliseconds |
-| Trend | Performance trend vs. the 7-day historical average |
-
-**Trend values:**
-- ↑ **up** — current average is more than 15% slower than the 7-day average
-- ↓ **down** — current average is more than 15% faster than the 7-day average
-- → **stable** — within 15% of the 7-day average
-- ★ **new** — no historical data available (workflow has not appeared in previous digests)
+| Failure % | Rate — orange > 5%, red > 20% |
+| Avg ms | Average execution duration |
+| Trend | ↑ up (>15% slower), ↓ down (>15% faster), → stable, ★ new |
 
 ### Regressions
 
-If any workflow is more than 50% slower than its 7-day average, it appears in a red **Performance Regressions** card at the bottom. Each regression shows:
-- Workflow name
-- Current average duration
-- 7-day historical average
-- Percentage slower
+Workflows more than 50% slower than their 7-day average appear in a red Regressions card with current avg, historical avg, and % slower.
 
 ### Workflow History
-
-The 7-day history for any individual workflow is available via the API:
 
 ```
 GET /api/v1/digest/workflow/<name>/history
 ```
 
-Returns the last 7 days of daily stats (total, failed, avg_ms) for that workflow, one entry per day. Days with no cached digest show zeros.
-
-### Digest Schedule
-
-The digest is regenerated automatically at **06:00 UTC daily** by a background APScheduler job. If a digest notification channel is configured (email or GChat), the digest is also delivered to those channels at that time.
-
-To trigger an immediate regeneration, click **Refresh** or call `GET /api/v1/digest/daily` directly.
+Returns the last 7 days of daily stats (total, failed, avg_ms) for a single workflow.
 
 ---
 
 ## Settings Tab
 
-**What it does:** Manage Conductor secrets — the named key-value pairs that workflows reference at runtime using the `${secret.NAME}` syntax.
-
-### What Are Conductor Secrets?
-
-Secrets are named credentials stored securely in Conductor. Workflow task definitions reference them as `${secret.PAYMENT_API_KEY}` rather than hardcoding the value. This means rotating a credential only requires updating it once in the Secrets tab rather than editing every workflow definition.
+**What it does:** Manage Conductor secrets — named credentials that workflows reference at runtime as `${secret.NAME}`.
 
 ### Secrets List
 
-The table lists every secret name currently stored in Conductor. Columns:
-- **Secret Name** — the key used in workflow definitions
-- **Used In** — number of workflow definitions that reference this secret
-- **Actions** — Delete button
-
-Click on a secret name to see which workflow definitions and which specific tasks reference it. The usage lookup searches all workflow task `inputParameters` for `${secret.NAME}` and `__secret.NAME` patterns.
+Lists every secret name in Conductor with a usage count and Delete button. Click a secret name to see which workflow definitions and task `inputParameters` reference it.
 
 ### Adding or Updating a Secret
 
-Fill in the form at the top of the card:
+- **Secret Name** — the key name (e.g. `PAYMENT_API_KEY`). If it already exists, its value is overwritten.
+- **Secret Value** — displayed as a password field. Never shown again after saving.
 
-- **Secret Name** — the key name (e.g. `PAYMENT_API_KEY`). Must not contain spaces. If a secret with this name already exists, its value will be overwritten.
-- **Secret Value** — the credential value. Displayed as a password field.
-
-Click **Add / Update**. The secrets list refreshes automatically. The value is never displayed again after it is set.
+Click **Add / Update**.
 
 ### Deleting a Secret
 
-Click the **Delete** button next to any secret in the list. Confirm when prompted. This immediately removes the secret from Conductor. Any workflow task that references it will fail at runtime until the secret is re-added.
-
-> **Before deleting:** click the secret name to check usage. If any active workflow references it, coordinate the deletion with the team.
+Click **Delete** next to any secret. Check usage first — any active workflow referencing the secret will fail at runtime until it is re-added.
 
 ---
 
 ## Integrations Reference
 
-These integrations run in the background and surface their data through the tabs above. They do not have dedicated tabs but are configured via `.env`.
-
 ### Conductor
 
-The core integration. All workflow data, task definitions, secrets, and worker health come from Conductor. Set `CONDUCTOR_URL` in `.env`. If `CONDUCTOR_API_KEY` is set, it is sent as the `X-Authorization` header on every request. If Conductor is unreachable, the app automatically returns mock data so the UI remains functional.
+Set `CONDUCTOR_URL` in `.env`. If `CONDUCTOR_API_KEY` is set, it is sent as `X-Authorization` on every request. If unreachable, the app returns mock data automatically.
 
 ### Salesforce
 
-Used by the **Traces** tab to look up PersonAccount records by GUID or SIS_ID. Configured with Connected App credentials in `.env`:
+Configured with Connected App credentials:
 
 ```
 SF_USERNAME=conductor-svc@doane.edu
@@ -535,53 +440,39 @@ SF_CLIENT_ID=
 SF_CLIENT_SECRET=
 ```
 
-The app fetches an OAuth2 access token on first use and caches it for 90 minutes. The instance URL is derived from the login response and does not need to be set separately unless you need to target a sandbox.
+The app fetches an OAuth2 access token on first use and caches it for 90 minutes. `SF_INSTANCE_URL` is derived from the login response automatically — only set it to target a sandbox.
 
-If Salesforce credentials are not configured, Salesforce lookups return realistic mock data and the health endpoint reports `not_configured`.
-
-### Ethos (Ellucian)
-
-Used by the **Traces** tab to show recent change notification events. Configured with:
+### Ethos
 
 ```
 ETHOS_URL=
 ETHOS_API_KEY=
 ```
 
-Ethos events are held in an in-memory ring buffer and matched against person identifiers during a trace. Events can also be ingested directly via `POST /api/v1/ethos/events`.
-
-If Ethos credentials are not configured, the Traces timeline simply omits the ETHOS section and the health endpoint reports `not_configured`.
+Ethos events are held in an in-memory buffer and matched against person identifiers during a trace.
 
 ### Digest Notifications
 
-The daily digest can be delivered automatically at 06:00 UTC via email and/or Google Chat:
-
-**Email:**
 ```
+# Email
 SMTP_HOST=
 SMTP_PORT=587
 SMTP_USER=
 SMTP_PASSWORD=
 DIGEST_EMAIL_FROM=conductor-companion@doane.edu
-DIGEST_EMAIL_TO=team@doane.edu,manager@doane.edu
-```
+DIGEST_EMAIL_TO=team@doane.edu
 
-**Google Chat:**
-```
+# Google Chat
 GCHAT_WEBHOOK_URL=
 ```
 
-Both channels are opt-in. Configure neither, one, or both. Delivery failures are logged but never crash the scheduler.
+Both channels are opt-in. Delivery failures are logged but never crash the scheduler.
 
 ---
 
 ## Health Endpoints
 
-Two health endpoints are available for monitoring and CI:
-
 | Endpoint | Use |
 |---|---|
-| `GET /health` | Lightweight check safe for 30-second polling. Returns uptime, version, and a quick read-only status for each integration. |
-| `GET /health/deep` | Full functional check including a real Conductor API call and a database round-trip. Use for CI gates and admin smoke tests only — not for high-frequency polling. |
-
-Both return JSON with an `ok` boolean, a `status` string (`ok` or `degraded`), and per-integration check details.
+| `GET /health` | Lightweight — safe for 30-second polling. Returns uptime, version, integration statuses. |
+| `GET /health/deep` | Functional — real Conductor API call + DB round-trip. Use for CI gates only, not high-frequency polling. |
