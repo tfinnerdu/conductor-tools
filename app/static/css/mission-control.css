@@ -449,6 +449,33 @@ a {
   padding: 0.55rem 1rem;
   margin: -1rem -1rem 1rem -1rem;
   border-radius: 0.375rem 0.375rem 0 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Muted / secondary text on the dark header strip */
+.console-card-header .text-muted {
+  color: rgba(255, 255, 255, 0.65) !important;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.78rem;
+}
+
+/* Outline button sitting inside the dark header strip */
+.console-card-header .btn-outline {
+  color: rgba(255, 255, 255, 0.9);
+  border-color: rgba(255, 255, 255, 0.35);
+  background: transparent;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.72rem;
+}
+
+.console-card-header .btn-outline:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.65);
+  color: #fff;
 }
 
 /* ── JSON block (Ethos: .json-block; MC: .code-block) ───────────────────── */

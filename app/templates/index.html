@@ -65,9 +65,9 @@
 
     <!-- Results -->
     <div class="console-card">
-        <div class="d-flex align-center gap-1 mb-1">
-            <div class="console-card-header">Results</div>
-            <span id="search-result-count" class="text-muted font-sm" style="margin-left:auto"></span>
+        <div class="console-card-header">
+            Results
+            <span id="search-result-count" class="text-muted ms-auto"></span>
         </div>
         <div id="search-status-summary" class="mb-1"></div>
         <div class="table-wrapper">
@@ -152,12 +152,10 @@
     </div>
 
     <!-- Sub-tab navigation: Sandbox / Library / Test -->
-    <div class="console-card" style="padding:0;overflow:visible">
-        <ul class="nav-tabs" style="padding-left:1rem;border-bottom:1px solid #dee2e6;margin:0">
-            <li><a href="#jq-sandbox" id="subtab-jq-sandbox" class="active" style="font-size:0.85rem">Sandbox</a></li>
-            <li><a href="#jq-library" id="subtab-jq-library" style="font-size:0.85rem">Library</a></li>
-            <li><a href="#jq-test"    id="subtab-jq-test"    style="font-size:0.85rem">Test Harness</a></li>
-        </ul>
+    <div class="tab-bar mb-3">
+        <a href="#jq-sandbox" id="subtab-jq-sandbox" class="tab-item active">Sandbox</a>
+        <a href="#jq-library" id="subtab-jq-library" class="tab-item">Library</a>
+        <a href="#jq-test"    id="subtab-jq-test"    class="tab-item">Test Harness</a>
     </div>
 
     <!-- Sandbox sub-panel (Expression Library) -->
@@ -257,9 +255,9 @@
 <div id="panel-workers" class="tab-panel">
 
     <div class="console-card">
-        <div class="d-flex align-center gap-1">
-            <div class="console-card-header">Worker Registry</div>
-            <span id="workers-last-refreshed" class="text-muted font-sm" style="margin-left:auto"></span>
+        <div class="console-card-header">
+            Worker Registry
+            <span id="workers-last-refreshed" class="text-muted ms-auto"></span>
             <button id="workers-refresh-btn" class="btn btn-outline btn-sm">Refresh Now</button>
         </div>
     </div>
@@ -431,20 +429,20 @@
 <div id="panel-reconciler" class="tab-panel">
 
     <div class="console-card">
-        <div class="d-flex align-center gap-1">
-            <div class="console-card-header">Error Reconciler</div>
-            <span id="reconciler-last-refreshed" class="text-muted font-sm" style="margin-left:auto"></span>
+        <div class="console-card-header">
+            Error Reconciler
+            <span id="reconciler-last-refreshed" class="text-muted ms-auto"></span>
             <button id="reconciler-refresh-btn" class="btn btn-outline btn-sm">Refresh</button>
         </div>
     </div>
 
     <!-- Summary controls -->
     <div class="console-card">
-        <div class="d-flex align-center gap-1 mb-1">
-            <div class="console-card-header">Failure Summary</div>
-            <div class="d-flex gap-1 align-center" style="margin-left:auto">
-                <label class="form-label" style="margin:0">Hours back:</label>
-                <select id="reconciler-hours-back" class="form-control" style="width:auto">
+        <div class="console-card-header">
+            Failure Summary
+            <div class="d-flex gap-1 align-items-center ms-auto" style="text-transform:none;letter-spacing:0;font-weight:400">
+                <label style="margin:0;color:rgba(255,255,255,0.75);font-size:0.78rem">Hours back:</label>
+                <select id="reconciler-hours-back" class="form-select form-select-sm" style="width:auto;font-size:0.78rem">
                     <option value="6">6h</option>
                     <option value="24" selected>24h</option>
                     <option value="48">48h</option>
@@ -512,9 +510,9 @@
 
     <!-- Timeline -->
     <div id="tracer-timeline-card" class="console-card d-none">
-        <div class="d-flex align-center gap-1 mb-1">
-            <div class="console-card-header">Event Timeline</div>
-            <span id="tracer-event-count" class="text-muted font-sm" style="margin-left:auto"></span>
+        <div class="console-card-header">
+            Event Timeline
+            <span id="tracer-event-count" class="text-muted ms-auto"></span>
         </div>
         <ol id="tracer-timeline" class="timeline-list"></ol>
     </div>
@@ -537,12 +535,10 @@
 
     <!-- Recommendations -->
     <div class="console-card">
-        <div class="d-flex align-center gap-1 mb-1">
-            <div class="console-card-header">Recommendations</div>
-            <button id="digest-refresh-btn" class="btn btn-outline btn-sm" style="margin-left:auto">
-                Refresh
-            </button>
-            <span id="digest-last-generated" class="text-muted font-sm"></span>
+        <div class="console-card-header">
+            Recommendations
+            <button id="digest-refresh-btn" class="btn btn-outline btn-sm ms-auto">Refresh</button>
+            <span id="digest-last-generated" class="text-muted"></span>
         </div>
         <div id="digest-recommendations">
             <p class="text-muted font-sm">Loading recommendations...</p>
