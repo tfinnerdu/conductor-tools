@@ -11,8 +11,8 @@
 
         <!-- Search controls -->
         <div>
-            <div class="card">
-                <div class="card__title">Workflow Search</div>
+            <div class="console-card">
+                <div class="console-card-header">Workflow Search</div>
 
                 <div class="form-group">
                     <label class="form-label">Workflow Type</label>
@@ -53,8 +53,8 @@
 
         <!-- Saved searches sidebar -->
         <div>
-            <div class="card">
-                <div class="card__title">Saved Searches</div>
+            <div class="console-card">
+                <div class="console-card-header">Saved Searches</div>
                 <div id="saved-searches-list">
                     <p class="text-muted font-sm">Loading...</p>
                 </div>
@@ -64,9 +64,9 @@
     </div>
 
     <!-- Results -->
-    <div class="card">
+    <div class="console-card">
         <div class="d-flex align-center gap-1 mb-1">
-            <div class="card__title" style="margin:0;border:none;padding:0">Results</div>
+            <div class="console-card-header">Results</div>
             <span id="search-result-count" class="text-muted font-sm" style="margin-left:auto"></span>
         </div>
         <div id="search-status-summary" class="mb-1"></div>
@@ -106,8 +106,8 @@
 
         <!-- Left: Input -->
         <div>
-            <div class="card">
-                <div class="card__title">Input JSON</div>
+            <div class="console-card">
+                <div class="console-card-header">Input JSON</div>
                 <textarea id="jq-input" class="form-control" rows="12"
                     placeholder='{"key": "value", "items": [1, 2, 3]}'></textarea>
 
@@ -128,8 +128,8 @@
 
         <!-- Right: Expression and result -->
         <div>
-            <div class="card">
-                <div class="card__title">JQ Expression</div>
+            <div class="console-card">
+                <div class="console-card-header">JQ Expression</div>
                 <textarea id="jq-expression" class="form-control" rows="5"
                     placeholder=".items[] | select(.status == &quot;COMPLETED&quot;)"></textarea>
 
@@ -152,7 +152,7 @@
     </div>
 
     <!-- Sub-tab navigation: Sandbox / Library / Test -->
-    <div class="card" style="padding:0;overflow:visible">
+    <div class="console-card" style="padding:0;overflow:visible">
         <ul class="nav-tabs" style="padding-left:1rem;border-bottom:1px solid #dee2e6;margin:0">
             <li><a href="#jq-sandbox" id="subtab-jq-sandbox" class="active" style="font-size:0.85rem">Sandbox</a></li>
             <li><a href="#jq-library" id="subtab-jq-library" style="font-size:0.85rem">Library</a></li>
@@ -162,8 +162,8 @@
 
     <!-- Sandbox sub-panel (Expression Library) -->
     <div id="subpanel-jq-sandbox" class="jq-subpanel active">
-        <div class="card">
-            <div class="card__title">Expression Library</div>
+        <div class="console-card">
+            <div class="console-card-header">Expression Library</div>
             <div id="jq-expression-library">
                 <p class="text-muted font-sm">Loading expressions...</p>
             </div>
@@ -172,8 +172,8 @@
 
     <!-- Library sub-panel -->
     <div id="subpanel-jq-library" class="jq-subpanel" style="display:none">
-        <div class="card">
-            <div class="card__title">Saved Expressions</div>
+        <div class="console-card">
+            <div class="console-card-header">Saved Expressions</div>
             <div id="jq-library-list">
                 <p class="text-muted font-sm">Loading library...</p>
             </div>
@@ -186,8 +186,8 @@
 
             <!-- Left: workflow selector + mock inputs -->
             <div>
-                <div class="card">
-                    <div class="card__title">Test Configuration</div>
+                <div class="console-card">
+                    <div class="console-card-header">Test Configuration</div>
 
                     <div class="form-group">
                         <label class="form-label">Workflow</label>
@@ -221,16 +221,16 @@
                 </div>
 
                 <!-- Task refs helper -->
-                <div id="th-task-refs-card" class="card d-none">
-                    <div class="card__title">Task Reference Names</div>
+                <div id="th-task-refs-card" class="console-card d-none">
+                    <div class="console-card-header">Task Reference Names</div>
                     <div id="th-task-refs-list"></div>
                 </div>
             </div>
 
             <!-- Right: presets + results -->
             <div>
-                <div class="card">
-                    <div class="card__title">Presets</div>
+                <div class="console-card">
+                    <div class="console-card-header">Presets</div>
                     <div id="th-presets-list">
                         <p class="text-muted font-sm">Loading presets...</p>
                     </div>
@@ -239,8 +239,8 @@
                     </div>
                 </div>
 
-                <div id="th-result-card" class="card d-none">
-                    <div class="card__title">Test Result</div>
+                <div id="th-result-card" class="console-card d-none">
+                    <div class="console-card-header">Test Result</div>
                     <div id="th-result-content"></div>
                 </div>
             </div>
@@ -256,9 +256,9 @@
      ============================================================ -->
 <div id="panel-workers" class="tab-panel">
 
-    <div class="card">
+    <div class="console-card">
         <div class="d-flex align-center gap-1">
-            <div class="card__title" style="margin:0;border:none;padding:0">Worker Registry</div>
+            <div class="console-card-header">Worker Registry</div>
             <span id="workers-last-refreshed" class="text-muted font-sm" style="margin-left:auto"></span>
             <button id="workers-refresh-btn" class="btn btn-outline btn-sm">Refresh Now</button>
         </div>
@@ -266,7 +266,7 @@
 
     <div id="workers-summary" class="mb-2"></div>
 
-    <div class="card">
+    <div class="console-card">
         <div class="table-wrapper">
             <table class="data-table">
                 <thead>
@@ -290,8 +290,8 @@
     </div>
 
     <!-- Performance drill-down panel -->
-    <div id="worker-perf-panel" class="card d-none">
-        <div class="card__title">
+    <div id="worker-perf-panel" class="console-card d-none">
+        <div class="console-card-header">
             Performance: <span id="worker-perf-task-type"></span>
         </div>
         <div id="worker-perf-content"></div>
@@ -309,8 +309,8 @@
 
         <!-- Batch list -->
         <div>
-            <div class="card">
-                <div class="card__title">Migration Batches</div>
+            <div class="console-card">
+                <div class="console-card-header">Migration Batches</div>
                 <div id="batches-list">
                     <p class="text-muted font-sm">Loading batches...</p>
                 </div>
@@ -319,8 +319,8 @@
 
         <!-- New batch form -->
         <div>
-            <div class="card">
-                <div class="card__title">New Batch</div>
+            <div class="console-card">
+                <div class="console-card-header">New Batch</div>
                 <form id="create-batch-form">
                     <div class="form-group">
                         <label class="form-label">Batch Name</label>
@@ -358,8 +358,8 @@
      ============================================================ -->
 <div id="panel-diff" class="tab-panel">
 
-    <div class="card">
-        <div class="card__title">Workflow Version Diff</div>
+    <div class="console-card">
+        <div class="console-card-header">Workflow Version Diff</div>
 
         <div class="grid-3" style="grid-template-columns:2fr 1fr 1fr;gap:1rem;margin-bottom:1rem">
             <div class="form-group" style="margin:0">
@@ -398,15 +398,15 @@
     <div class="grid-2">
 
         <!-- Dependency map -->
-        <div class="card">
-            <div class="card__title">Dependency Map</div>
+        <div class="console-card">
+            <div class="console-card-header">Dependency Map</div>
             <button id="dependency-map-btn" class="btn btn-outline btn-sm mb-1">Load Dependency Map</button>
             <div id="dependency-map-content"></div>
         </div>
 
         <!-- Impact analysis -->
-        <div class="card">
-            <div class="card__title">Impact Analysis</div>
+        <div class="console-card">
+            <div class="console-card-header">Impact Analysis</div>
             <div class="form-group">
                 <label class="form-label">Task Type</label>
                 <div class="d-flex gap-1">
@@ -430,18 +430,18 @@
      ============================================================ -->
 <div id="panel-reconciler" class="tab-panel">
 
-    <div class="card">
+    <div class="console-card">
         <div class="d-flex align-center gap-1">
-            <div class="card__title" style="margin:0;border:none;padding:0">Error Reconciler</div>
+            <div class="console-card-header">Error Reconciler</div>
             <span id="reconciler-last-refreshed" class="text-muted font-sm" style="margin-left:auto"></span>
             <button id="reconciler-refresh-btn" class="btn btn-outline btn-sm">Refresh</button>
         </div>
     </div>
 
     <!-- Summary controls -->
-    <div class="card">
+    <div class="console-card">
         <div class="d-flex align-center gap-1 mb-1">
-            <div class="card__title" style="margin:0;border:none;padding:0">Failure Summary</div>
+            <div class="console-card-header">Failure Summary</div>
             <div class="d-flex gap-1 align-center" style="margin-left:auto">
                 <label class="form-label" style="margin:0">Hours back:</label>
                 <select id="reconciler-hours-back" class="form-control" style="width:auto">
@@ -458,15 +458,15 @@
     </div>
 
     <!-- Failure groups by task type -->
-    <div class="card">
-        <div class="card__title">Failures by Task Type</div>
+    <div class="console-card">
+        <div class="console-card-header">Failures by Task Type</div>
         <div id="reconciler-groups-content">
             <p class="text-muted font-sm">Select a workflow above or load all.</p>
         </div>
     </div>
 
     <!-- Bulk retry toolbar -->
-    <div class="card" id="reconciler-bulk-retry-card" style="display:none">
+    <div class="console-card" id="reconciler-bulk-retry-card" style="display:none">
         <div class="d-flex align-center gap-1">
             <span id="reconciler-selected-count" class="text-muted font-sm">0 executions selected</span>
             <button id="reconciler-bulk-retry-btn" class="btn btn-primary" style="margin-left:auto">
@@ -484,8 +484,8 @@
      ============================================================ -->
 <div id="panel-traces" class="tab-panel">
 
-    <div class="card">
-        <div class="card__title">Correlation Tracer</div>
+    <div class="console-card">
+        <div class="console-card-header">Correlation Tracer</div>
 
         <div class="form-group">
             <label class="form-label">Search Type</label>
@@ -511,17 +511,17 @@
     </div>
 
     <!-- Timeline -->
-    <div id="tracer-timeline-card" class="card d-none">
+    <div id="tracer-timeline-card" class="console-card d-none">
         <div class="d-flex align-center gap-1 mb-1">
-            <div class="card__title" style="margin:0;border:none;padding:0">Event Timeline</div>
+            <div class="console-card-header">Event Timeline</div>
             <span id="tracer-event-count" class="text-muted font-sm" style="margin-left:auto"></span>
         </div>
         <ol id="tracer-timeline" class="timeline-list"></ol>
     </div>
 
     <!-- Recent traces -->
-    <div class="card">
-        <div class="card__title">Recent Traces</div>
+    <div class="console-card">
+        <div class="console-card-header">Recent Traces</div>
         <div id="tracer-recent-list">
             <p class="text-muted font-sm">No recent traces yet.</p>
         </div>
@@ -536,9 +536,9 @@
 <div id="panel-digest" class="tab-panel">
 
     <!-- Recommendations -->
-    <div class="card">
+    <div class="console-card">
         <div class="d-flex align-center gap-1 mb-1">
-            <div class="card__title" style="margin:0;border:none;padding:0">Recommendations</div>
+            <div class="console-card-header">Recommendations</div>
             <button id="digest-refresh-btn" class="btn btn-outline btn-sm" style="margin-left:auto">
                 Refresh
             </button>
@@ -550,8 +550,8 @@
     </div>
 
     <!-- Workflow table -->
-    <div class="card">
-        <div class="card__title">Workflow Performance</div>
+    <div class="console-card">
+        <div class="console-card-header">Workflow Performance</div>
         <div class="table-wrapper">
             <table class="data-table">
                 <thead>
@@ -576,8 +576,8 @@
     </div>
 
     <!-- Regressions -->
-    <div id="digest-regressions-card" class="card d-none">
-        <div class="card__title" style="color:#b31d28">Performance Regressions</div>
+    <div id="digest-regressions-card" class="console-card d-none">
+        <div class="console-card-header" style="background-color:#b31d28">Performance Regressions</div>
         <div id="digest-regressions-content"></div>
     </div>
 
@@ -588,8 +588,8 @@
      SETTINGS TAB
      ============================================================ -->
 <div id="panel-settings" class="tab-panel">
-  <div class="card mb-2">
-    <div class="card__title">Conductor Secrets</div>
+  <div class="console-card mb-2">
+    <div class="console-card-header">Conductor Secrets</div>
     <!-- Add Secret form -->
     <form id="add-secret-form" class="form-inline mb-1" style="display:flex;gap:0.5rem;flex-wrap:wrap">
       <input type="text" id="new-secret-name" class="form-control" placeholder="Secret name" style="max-width:200px" required />

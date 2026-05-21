@@ -5,12 +5,9 @@
  * (buttons, cards, forms, badges, utilities) use Bootstrap + MC classes.
  */
 
-/* ── Card layout fix ─────────────────────────────────────────────────────── */
-/* Bootstrap .card provides no internal padding without .card-body.          */
-/* The existing HTML uses .card directly (no card-body wrapper), so we       */
-/* restore the padding here rather than rewriting all templates.             */
+/* ── Bootstrap .card fallback (templates use .console-card; this is a      */
+/* safety net for any Bootstrap component that renders .card internally)    */
 .card {
-  padding: 1.25rem;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
 }
 
@@ -63,17 +60,6 @@
   background-color: var(--doane-ink);
   border-color: var(--doane-ink);
   color: #fff;
-}
-
-/* ── Card titles ─────────────────────────────────────────────────────────── */
-/* Bootstrap .card provides the box; .card__title is the conductor convention */
-.card__title {
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--doane-slate);
-  margin: 0 0 1rem 0;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid var(--doane-border);
 }
 
 /* ── Tab panels ──────────────────────────────────────────────────────────── */

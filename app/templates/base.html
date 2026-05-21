@@ -20,30 +20,30 @@
 <body>
 
 <!-- ── Navbar ────────────────────────────────────────────────────────────── -->
-<nav class="navbar mc-navbar px-3 py-0">
-    <a class="mc-brand me-4 py-2" href="/">
-        <span class="mc-brand-icon"></span>Conductor Companion
+<nav class="navbar doane-nav px-3" style="min-height:3.2rem">
+    <a class="mc-brand py-2" href="/">
+        <span class="doane-dot"></span>Conductor Companion
     </a>
-
-    <div class="mc-tab-nav d-flex align-items-end overflow-auto">
-        <ul class="nav flex-nowrap mb-0">
-            <li class="nav-item"><a href="#search"      id="tab-search"      class="nav-link mc-active">Search</a></li>
-            <li class="nav-item"><a href="#jq-lab"      id="tab-jq-lab"      class="nav-link">JQ Lab</a></li>
-            <li class="nav-item"><a href="#workers"     id="tab-workers"     class="nav-link">Workers</a></li>
-            <li class="nav-item"><a href="#migrations"  id="tab-migrations"  class="nav-link">Migrations</a></li>
-            <li class="nav-item"><a href="#diff"        id="tab-diff"        class="nav-link">Diff</a></li>
-            <li class="nav-item"><a href="#reconciler"  id="tab-reconciler"  class="nav-link">Reconciler</a></li>
-            <li class="nav-item"><a href="#traces"      id="tab-traces"      class="nav-link">Traces</a></li>
-            <li class="nav-item"><a href="#digest"      id="tab-digest"      class="nav-link">Digest</a></li>
-            <li class="nav-item"><a href="#settings"    id="tab-settings"    class="nav-link">Settings</a></li>
-        </ul>
-    </div>
-
-    <div class="ms-auto d-flex align-items-center gap-2 ps-3">
+    <div class="ms-auto d-flex align-items-center gap-2">
         <span id="mock-mode-chip" class="mc-mock-chip d-none">MOCK</span>
         <span id="version-badge" class="badge-slate" style="font-size:0.72rem;padding:0.3em 0.6em;border-radius:0.3rem;white-space:nowrap"></span>
     </div>
 </nav>
+
+<!-- ── Tab bar ───────────────────────────────────────────────────────────── -->
+<div class="tab-bar">
+    <div class="container-fluid px-2 d-flex flex-nowrap">
+        <a href="#search"     id="tab-search"     class="tab-item"><i class="bi bi-search me-1"></i>Search</a>
+        <a href="#jq-lab"     id="tab-jq-lab"     class="tab-item"><i class="bi bi-braces me-1"></i>JQ Lab</a>
+        <a href="#workers"    id="tab-workers"    class="tab-item"><i class="bi bi-cpu me-1"></i>Workers</a>
+        <a href="#migrations" id="tab-migrations" class="tab-item"><i class="bi bi-database-up me-1"></i>Migrations</a>
+        <a href="#diff"       id="tab-diff"       class="tab-item"><i class="bi bi-arrow-left-right me-1"></i>Diff</a>
+        <a href="#reconciler" id="tab-reconciler" class="tab-item"><i class="bi bi-arrow-repeat me-1"></i>Reconciler</a>
+        <a href="#traces"     id="tab-traces"     class="tab-item"><i class="bi bi-diagram-3 me-1"></i>Traces</a>
+        <a href="#digest"     id="tab-digest"     class="tab-item"><i class="bi bi-bar-chart me-1"></i>Digest</a>
+        <a href="#settings"   id="tab-settings"   class="tab-item"><i class="bi bi-gear me-1"></i>Settings</a>
+    </div>
+</div>
 
 <!-- ── Main content ──────────────────────────────────────────────────────── -->
 <div class="container-fluid px-3 py-3">
