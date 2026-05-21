@@ -805,7 +805,6 @@ class TestSearchGaps:
         """Line 62: not_exists operator when field IS present (should exclude)."""
         from app.routes.search import _matches_filter
         result = {"orderId": 1001, "status": "COMPLETED"}
-        # not_exists on a field that DOES exist → should not match (returns False)
         assert _matches_filter(result, [{"path": "orderId", "operator": "not_exists", "value": ""}]) is False
 
     def test_filter_not_exists_operator_absent_field(self, client_with_mock_conductor):
@@ -863,7 +862,6 @@ class TestSecretsGaps:
     def test_usages_deduplicates_same_workflow_version(self, client_with_mock_conductor):
         """Line 76: seen-set skips duplicate key."""
         with patch("app.routes.secrets.ConductorClient") as MockClient:
-            # Return two defs with same name+version → seen-set deduplication
             MockClient.return_value.list_workflow_definitions.return_value = [
                 {"name": "EDA_Sync", "version": 1,
                  "tasks": [{"inputParameters": {"x": "${workflow.secrets.MY_KEY}"}}]},
@@ -926,7 +924,6 @@ class TestTracerGaps:
             )
         assert resp.status_code == 200
         trace = resp.get_json()["trace"]
-        # The unrelated ethos event should NOT appear in the trace
         ethos_events = [e for e in trace if e["system"] == "ETHOS"]
         assert len(ethos_events) == 0
 
@@ -1339,8 +1336,6 @@ class TestTracerEthosEventMatches:
             "content": "STU12345 record updated",
             "received_at": "2026-05-18T00:00:00+00:00",
         }
-        # The fixture patches ethos_provider with a mock; override get_recent_events
-        # to return our event so the identifier-match filter path (line 132) is exercised.
         with patch("app.routes.tracer.ethos_provider.get_recent_events",
                    return_value=[matching_event]):
             resp = client_with_mock_conductor.post(
