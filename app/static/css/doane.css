@@ -1,0 +1,34 @@
+/* doane.css — Doane University theme.
+ *
+ * Orange / grayscale + a single link-blue, sourced from
+ * doane.edu's live marketing CSS (:root custom properties).
+ *
+ * Loaded before mission-control.css. Values are space-separated
+ * RGB triplets for css color-mix() compatibility.
+ *
+ * Note: doane.edu uses NO navy in the live site. The correct dark chrome
+ * is near-black ink (#161C21) and a mid-tone slate accent (#47545D).
+ */
+
+:root {
+  --brand-primary: 255 121 0;          /* #FF7900 — --c-primary on doane.edu */
+  --brand-primary-dark: 216 102 0;     /* #D86600 */
+  --brand-primary-light: 255 154 64;   /* #FF9A40 */
+
+  --brand-text: 22 28 33;              /* #161C21 — --c-text */
+  --brand-text-strong: 0 0 0;          /* #000000 */
+  --brand-text-soft: 37 47 56;         /* #252F38 */
+
+  --brand-accent: 71 84 93;            /* #47545D — --c-accent */
+  --brand-muted: 103 115 122;          /* #67737A */
+
+  --brand-section: 229 235 237;        /* #E5EBED */
+  --brand-page: 244 245 245;           /* #F4F5F5 */
+
+  --brand-border: 196 200 201;         /* #C4C8C9 */
+  --brand-border-soft: 229 235 237;    /* #E5EBED */
+
+  --brand-link: 0 99 176;              /* #0063B0 — --c-secondary */
+
+  --brand-accent-warm: 103 115 122;
+}

@@ -1,0 +1,392 @@
+/* ── Doane Mission Control — mission-control.css ─────────────────────────── */
+/* Shared design system for Doane internal operator consoles.                */
+/* Stack: Bootstrap 5.3 (CDN) + doane.css (tokens) + this file.             */
+/* Design language: orange + grayscale + a single link-blue. No navy.       */
+
+:root {
+  --doane-orange:       #FF7900;
+  --doane-orange-dark:  #D86600;
+  --doane-orange-light: #FF9A40;
+
+  --doane-ink:          #161C21;   /* near-black — navbar, strong headings */
+  --doane-slate:        #47545D;   /* slate accent — table/card headers, titles */
+  --doane-muted:        #67737A;   /* secondary / muted text */
+
+  --doane-page:         #F4F5F5;   /* body background */
+  --doane-section:      #E5EBED;   /* subtle section fill */
+  --doane-border:       #C4C8C9;   /* hairline borders */
+
+  --doane-link:         #0063B0;   /* the only blue */
+}
+
+body {
+  background-color: var(--doane-page);
+  color: var(--doane-ink);
+}
+
+a {
+  color: var(--doane-link);
+}
+
+.card {
+  border-color: var(--doane-border);
+}
+
+/* ── Navbar ──────────────────────────────────────────────────────────────── */
+.mc-navbar {
+  background-color: var(--doane-ink);
+  border-bottom: 3px solid var(--doane-orange);
+}
+
+.mc-brand {
+  color: var(--doane-orange) !important;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 1.1rem;
+  letter-spacing: 0.02em;
+}
+
+.mc-brand:hover {
+  color: #ffaa44 !important;
+}
+
+.mc-brand-icon {
+  color: var(--doane-orange);
+  font-size: 0.8rem;
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  background: var(--doane-orange);
+  border-radius: 50%;
+  vertical-align: middle;
+  margin-right: 4px;
+}
+
+/* ── Tab Nav ─────────────────────────────────────────────────────────────── */
+.mc-tab-nav .nav-link {
+  color: rgba(255, 255, 255, 0.85) !important;
+  font-weight: 500;
+  padding: 0.5rem 0.85rem;
+  transition: color 0.15s ease;
+}
+
+.mc-tab-nav .nav-link:hover {
+  color: var(--doane-orange) !important;
+}
+
+.mc-tab-nav .mc-active {
+  color: var(--doane-orange) !important;
+  border-bottom: 3px solid var(--doane-orange);
+  padding-bottom: calc(0.5rem - 3px);
+}
+
+/* ── Org Badge ───────────────────────────────────────────────────────────── */
+.mc-org-badge {
+  background-color: var(--doane-orange) !important;
+  color: #fff !important;
+  font-size: 0.75rem;
+  border-radius: 0.375rem;
+  padding: 0.3em 0.65em;
+  font-weight: 600;
+}
+
+/* ── Mock-mode indicators ────────────────────────────────────────────────── */
+.mc-mock-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #856404;
+  background: #fff8e1;
+  border: 1px dashed #ffc107;
+  border-radius: 0.3rem;
+  padding: 0.15em 0.5em;
+  vertical-align: middle;
+  letter-spacing: 0.03em;
+  user-select: none;
+}
+
+.mc-mock-chip::before {
+  content: '⚠';
+  font-size: 0.75em;
+}
+
+.mc-mock-btn-disabled {
+  opacity: 0.45 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+}
+
+/* ── Semantic badges ─────────────────────────────────────────────────────── */
+.badge-green {
+  background-color: #28a745;
+  color: #fff;
+  padding: 0.3em 0.65em;
+  border-radius: 0.375rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.badge-amber {
+  background-color: #ffc107;
+  color: #212529;
+  padding: 0.3em 0.65em;
+  border-radius: 0.375rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.badge-red {
+  background-color: #dc3545;
+  color: #fff;
+  padding: 0.3em 0.65em;
+  border-radius: 0.375rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.badge-slate {
+  background-color: var(--doane-slate);
+  color: #fff;
+  padding: 0.3em 0.65em;
+  border-radius: 0.375rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.badge-blue {
+  background-color: var(--doane-link);
+  color: #fff;
+  padding: 0.3em 0.65em;
+  border-radius: 0.375rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.badge-secondary {
+  background-color: #6c757d;
+  color: #fff;
+  padding: 0.3em 0.65em;
+  border-radius: 0.375rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.badge-purple {
+  background-color: #6f42c1;
+  color: #fff;
+  padding: 0.3em 0.65em;
+  border-radius: 0.375rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+/* ── Scorecard Table ─────────────────────────────────────────────────────── */
+.scorecard-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.scorecard-table th {
+  background-color: var(--doane-slate);
+  color: #fff;
+  padding: 0.6rem 1rem;
+  text-align: left;
+  font-weight: 600;
+}
+
+.scorecard-table td {
+  padding: 0.55rem 1rem;
+  vertical-align: middle;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.scorecard-table tbody tr:nth-child(even) {
+  background-color: #f8f9fa;
+}
+
+.scorecard-table tbody tr:hover {
+  background-color: #fff3e0;
+}
+
+.scorecard-table .status-green td:first-child { border-left: 4px solid #28a745; }
+.scorecard-table .status-amber td:first-child { border-left: 4px solid #ffc107; }
+.scorecard-table .status-red   td:first-child { border-left: 4px solid #dc3545; }
+
+/* ── Metric Cards ────────────────────────────────────────────────────────── */
+.metric-card {
+  background: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 0.5rem;
+  padding: 1.25rem;
+  text-align: center;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.metric-number {
+  font-size: 2.5rem;
+  color: var(--doane-orange);
+  font-weight: 700;
+  line-height: 1.1;
+  display: block;
+}
+
+.metric-label {
+  font-size: 0.8rem;
+  color: #6c757d;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 0.25rem;
+}
+
+/* ── Overall Banner ──────────────────────────────────────────────────────── */
+.overall-banner {
+  width: 100%;
+  padding: 0.85rem 1.25rem;
+  border-radius: 0.375rem;
+  font-weight: 600;
+  font-size: 1rem;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.overall-banner.banner-green { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+.overall-banner.banner-amber { background: #fff3cd; color: #856404; border: 1px solid #ffecb5; }
+.overall-banner.banner-red   { background: #dc3545; color: #fff;    border: 1px solid #c82333; }
+
+/* ── Button overrides ────────────────────────────────────────────────────── */
+.btn-doane {
+  background-color: var(--doane-orange);
+  color: #fff;
+  border: none;
+  font-weight: 600;
+}
+
+.btn-doane:hover {
+  background-color: var(--doane-orange-dark);
+  color: #fff;
+}
+
+.btn-slate {
+  background-color: var(--doane-slate);
+  color: #fff;
+  border: none;
+  font-weight: 600;
+}
+
+.btn-slate:hover {
+  background-color: var(--doane-ink);
+  color: #fff;
+}
+
+/* ── Code Block ──────────────────────────────────────────────────────────── */
+.code-block {
+  background-color: #1e1e1e;
+  color: #d4d4d4;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 0.85rem;
+  border-radius: 0.375rem;
+  padding: 1rem;
+  min-height: 80px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  border: 2px solid var(--doane-slate);
+}
+
+/* ── Info Box ────────────────────────────────────────────────────────────── */
+.info-box {
+  background-color: #e7f3ff;
+  border: 1px solid #bee3f8;
+  border-left: 4px solid #3182ce;
+  border-radius: 0.375rem;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  color: #1a365d;
+}
+
+/* ── Page Headers ────────────────────────────────────────────────────────── */
+.mc-page-header {
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid #dee2e6;
+}
+
+.mc-page-title {
+  color: var(--doane-slate);
+  font-weight: 700;
+  margin: 0;
+}
+
+/* ── Sub-nav Pills ───────────────────────────────────────────────────────── */
+.sub-nav {
+  background-color: #f0f1f3;
+  border-bottom: 1px solid #dee2e6;
+  padding: 0.4rem 0;
+}
+
+.sub-nav .nav-link {
+  color: var(--doane-slate);
+  font-size: 0.875rem;
+  font-weight: 500;
+  padding: 0.35rem 1rem;
+  border-radius: 0.375rem;
+}
+
+.sub-nav .nav-link:hover {
+  background-color: #fff3e0;
+  color: var(--doane-orange);
+}
+
+.sub-nav .nav-link.active {
+  background-color: var(--doane-orange);
+  color: #fff;
+}
+
+/* ── Settings ────────────────────────────────────────────────────────────── */
+.settings-section { margin-bottom: 2rem; }
+
+.settings-section-title {
+  color: var(--doane-slate);
+  font-weight: 700;
+  font-size: 1rem;
+  border-bottom: 2px solid var(--doane-orange);
+  padding-bottom: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.masked-value {
+  font-family: monospace;
+  color: #6c757d;
+  letter-spacing: 0.1em;
+}
+
+/* ── Info Icon (ⓘ popovers) ─────────────────────────────────────────────── */
+.mc-info-icon {
+  cursor: pointer;
+  color: var(--doane-slate);
+  opacity: 0.55;
+  font-size: 0.8rem;
+  margin-left: 0.3rem;
+  vertical-align: middle;
+}
+
+.mc-info-icon:hover { opacity: 1; }
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .mc-navbar { flex-wrap: wrap; }
+  .mc-tab-nav .nav-link { font-size: 0.82rem; padding: 0.4rem 0.5rem; }
+  .metric-card { width: 100%; margin-bottom: 0.75rem; }
+}
+
+/* ── Print ───────────────────────────────────────────────────────────────── */
+@media print {
+  .mc-navbar, .sub-nav, .btn, .mc-mock-chip, .no-print { display: none !important; }
+  body { background: #fff; font-size: 11pt; }
+  .scorecard-table { page-break-inside: auto; }
+  .scorecard-table tr { page-break-inside: avoid; page-break-after: auto; }
+}

@@ -4,44 +4,62 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Conductor Companion{% block title_suffix %}{% endblock %}</title>
+
+    <!-- Bootstrap 5.3 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+
+    <!-- Doane brand tokens + Mission Control components + conductor overrides -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/doane.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mission-control.css') }}" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}" />
+
+    {% block extra_head %}{% endblock %}
 </head>
 <body>
 
-<!-- Top brand bar -->
-<div class="top-bar">
-    <div>
-        <span class="top-bar__title">Conductor Companion</span>
-    </div>
-    <div>
-        <span class="top-bar__subtitle" id="conductor-url-display"></span>
-    </div>
-</div>
+<!-- ── Navbar ────────────────────────────────────────────────────────────── -->
+<nav class="navbar mc-navbar px-3 py-0">
+    <a class="mc-brand me-4 py-2" href="/">
+        <span class="mc-brand-icon"></span>Conductor Companion
+    </a>
 
-<!-- Navigation tabs -->
-<div class="nav-tabs-wrapper">
-    <ul class="nav-tabs">
-        <li><a href="#search"     id="tab-search"     class="active">Search</a></li>
-        <li><a href="#jq-lab"     id="tab-jq-lab"    >JQ Lab</a></li>
-        <li><a href="#workers"    id="tab-workers"   >Workers</a></li>
-        <li><a href="#migrations" id="tab-migrations">Migrations</a></li>
-        <li><a href="#diff"       id="tab-diff"       >Diff</a></li>
-        <li><a href="#reconciler" id="tab-reconciler">Reconciler</a></li>
-        <li><a href="#traces"     id="tab-traces"    >Traces</a></li>
-        <li><a href="#digest"     id="tab-digest"    >Digest</a></li>
-        <li><a href="#settings" id="tab-settings">Settings</a></li>
-    </ul>
-</div>
+    <div class="mc-tab-nav d-flex align-items-end overflow-auto">
+        <ul class="nav flex-nowrap mb-0">
+            <li class="nav-item"><a href="#search"      id="tab-search"      class="nav-link mc-active">Search</a></li>
+            <li class="nav-item"><a href="#jq-lab"      id="tab-jq-lab"      class="nav-link">JQ Lab</a></li>
+            <li class="nav-item"><a href="#workers"     id="tab-workers"     class="nav-link">Workers</a></li>
+            <li class="nav-item"><a href="#migrations"  id="tab-migrations"  class="nav-link">Migrations</a></li>
+            <li class="nav-item"><a href="#diff"        id="tab-diff"        class="nav-link">Diff</a></li>
+            <li class="nav-item"><a href="#reconciler"  id="tab-reconciler"  class="nav-link">Reconciler</a></li>
+            <li class="nav-item"><a href="#traces"      id="tab-traces"      class="nav-link">Traces</a></li>
+            <li class="nav-item"><a href="#digest"      id="tab-digest"      class="nav-link">Digest</a></li>
+            <li class="nav-item"><a href="#settings"    id="tab-settings"    class="nav-link">Settings</a></li>
+        </ul>
+    </div>
 
-<!-- Main content -->
-<div class="main-content">
+    <div class="ms-auto d-flex align-items-center gap-2 ps-3">
+        <span id="mock-mode-chip" class="mc-mock-chip d-none">MOCK</span>
+        <span id="version-badge" class="badge-slate" style="font-size:0.72rem;padding:0.3em 0.6em;border-radius:0.3rem;white-space:nowrap"></span>
+    </div>
+</nav>
+
+<!-- ── Main content ──────────────────────────────────────────────────────── -->
+<div class="container-fluid px-3 py-3">
     {% block content %}{% endblock %}
 </div>
 
-<!-- Toast container -->
-<div id="toast-container" class="toast-container"></div>
+<!-- ── Toast container ───────────────────────────────────────────────────── -->
+<div id="toast-container"
+     aria-live="polite"
+     aria-atomic="true"
+     style="position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;display:flex;flex-direction:column;gap:0.5rem;"></div>
 
-<!-- Scripts -->
+<!-- Bootstrap JS bundle (includes Popper) -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- App scripts -->
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 <script src="{{ url_for('static', filename='js/search.js') }}"></script>
 <script src="{{ url_for('static', filename='js/jq_lab.js') }}"></script>
@@ -53,15 +71,25 @@
 <script src="{{ url_for('static', filename='js/digest.js') }}"></script>
 <script src="{{ url_for('static', filename='js/test_harness.js') }}"></script>
 <script src="{{ url_for('static', filename='js/secrets.js') }}"></script>
+
 <script>
-    // Show server URL in top bar
-    document.addEventListener('DOMContentLoaded', function () {
-        fetch('/health').then(r => r.json()).then(data => {
-            const el = document.getElementById('conductor-url-display');
-            if (el) el.textContent = 'v' + (data.version || '1.0.0');
-        }).catch(() => {});
-    });
+document.addEventListener('DOMContentLoaded', function () {
+    // Version badge from liveness endpoint
+    fetch('/api/v1/health').then(r => r.json()).then(data => {
+        const el = document.getElementById('version-badge');
+        if (el) el.textContent = 'v' + (data.version || '1.0.0');
+    }).catch(() => {});
+
+    // Mock-mode chip from readiness endpoint
+    fetch('/api/v1/health/deep').then(r => r.json()).then(data => {
+        if (data.mock) {
+            const chip = document.getElementById('mock-mode-chip');
+            if (chip) chip.classList.remove('d-none');
+        }
+    }).catch(() => {});
+});
 </script>
+
 {% block extra_scripts %}{% endblock %}
 </body>
 </html>
