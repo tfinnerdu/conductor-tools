@@ -69,6 +69,7 @@
     <Compile Include="tests\test_diff.py" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include=".env" />
     <Content Include=".env.example" />
     <Content Include=".gitignore" />
     <Content Include="requirements.txt" />
@@ -87,6 +88,22 @@
     <Content Include="docs\bashCommands.txt" />
     <Content Include="docs\e2e-test-walkthrough.md" />
     <Content Include="docs\user-guide.md" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="app\" />
+    <Folder Include="app\models\" />
+    <Folder Include="app\routes\" />
+    <Folder Include="app\static\" />
+    <Folder Include="app\static\css\" />
+    <Folder Include="app\static\js\" />
+    <Folder Include="app\templates\" />
+    <Folder Include="db\" />
+    <Folder Include="docs\" />
+    <Folder Include="k8s\" />
+    <Folder Include="tests\" />
+  </ItemGroup>
+  <ItemGroup>
+    <InterpreterReference Include="Global|PythonCore|3.11" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
 </Project>
