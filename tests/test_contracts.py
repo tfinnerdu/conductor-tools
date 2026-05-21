@@ -141,7 +141,6 @@ class TestEthosEedmFieldContracts:
         assert isinstance(credentials, list), "credentials must be a list"
         assert len(credentials) > 0, "At least one credential expected"
         first = credentials[0]
-        # These field names are from EEDM spec — do not rename without updating here
         assert "type" in first, "Each credential must have a 'type' object"
         assert "credentialType" in first["type"], \
             "Credential type discriminator must be at .type.credentialType"
@@ -346,7 +345,6 @@ class TestSalesforceMockFieldContracts:
             "Mock record must use 'Ethos_Guid__c'. "
             "Doane standard: d45 keymaps are fully retired."
         )
-        # Confirm legacy field is NOT present
         assert "d45" not in str(record).lower(), \
             "d45 legacy field must not appear in any SF record"
 
@@ -354,7 +352,6 @@ class TestSalesforceMockFieldContracts:
         """CONTRACT: Provider result wraps SF records in standard shape."""
         from app import sf_provider
         result = sf_provider.find_person_by_sis_id("STU1")
-        # Our provider wraps the SF REST response
         assert "records" in result
         assert "record_count" in result
         assert "status" in result
@@ -572,7 +569,6 @@ class TestDigestEmailFormatContracts:
         from app import notification_provider
         html = notification_provider.format_email_html(self._sample_digest())
         assert "EDA_ContactPoint_Sync" in html
-        # Regression pct should appear
         assert "133" in html, "Regression percentage must be visible in email"
 
     def test_gchat_message_contains_date(self):
