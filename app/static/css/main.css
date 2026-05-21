@@ -5,6 +5,37 @@
  * (buttons, cards, forms, badges, utilities) use Bootstrap + MC classes.
  */
 
+/* ── Card layout fix ─────────────────────────────────────────────────────── */
+/* Bootstrap .card provides no internal padding without .card-body.          */
+/* The existing HTML uses .card directly (no card-body wrapper), so we       */
+/* restore the padding here rather than rewriting all templates.             */
+.card {
+  padding: 1.25rem;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
+}
+
+/* ── Form group spacing ──────────────────────────────────────────────────── */
+/* Bootstrap 5 dropped .form-group. Restore the bottom margin so stacked     */
+/* form fields don't collapse into each other.                               */
+.form-group {
+  margin-bottom: 0.85rem;
+}
+
+/* ── btn-outline (Bootstrap 5 uses btn-outline-* variants) ──────────────── */
+/* The existing HTML uses .btn.btn-outline; map it to an outline style.      */
+.btn-outline {
+  background: transparent;
+  color: var(--doane-slate);
+  border: 1px solid var(--doane-border);
+  font-weight: 500;
+}
+
+.btn-outline:hover:not(:disabled) {
+  background: var(--doane-section);
+  border-color: var(--doane-slate);
+  color: var(--doane-ink);
+}
+
 /* ── Bootstrap btn-primary → Doane orange ───────────────────────────────── */
 .btn-primary {
   background-color: var(--doane-orange);
@@ -109,6 +140,24 @@ tr.status-healthy td      { border-left: 3px solid #28a745; }
 tr.status-slow-poll td:first-child { border-left: 3px solid #ffc107; }
 tr.status-down td:first-child      { border-left: 3px solid #dc3545; }
 tr.status-no-workers td:first-child { border-left: 3px solid #dc3545; }
+
+/* ── Form control polish ─────────────────────────────────────────────────── */
+/* Override Bootstrap's blue focus ring to Doane orange.                     */
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--doane-orange);
+  box-shadow: 0 0 0 0.2rem rgba(255, 121, 0, 0.2);
+}
+
+/* Form labels follow Bootstrap's .form-label but add a touch more weight.  */
+.form-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--doane-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.3rem;
+}
 
 /* ── Data table (workflow search results) ────────────────────────────────── */
 .data-table {
