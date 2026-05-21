@@ -1,17 +1,13 @@
 """Diff routes — /api/v1/diff/*"""
 import difflib
 import json
-import uuid
 
 from flask import Blueprint, current_app, jsonify, request
 
 from app.conductor_client import ConductorClient
+from app.utils.responses import error_response
 
 diff_bp = Blueprint("diff", __name__, url_prefix="/api/v1/diff")
-
-
-def _error(message: str, code: str, status: int = 400):
-    return jsonify({"error": message, "code": code, "request_id": str(uuid.uuid4())}), status
 
 
 def _render_diff_html(lines_a: list, lines_b: list) -> list:
@@ -76,7 +72,7 @@ def list_workflows():
         return jsonify(result)
     except Exception as exc:
         current_app.logger.error("list_workflows error: %s", exc, exc_info=True)
-        return _error(str(exc), "LIST_ERROR", 500)
+        return error_response(str(exc), "LIST_ERROR", 500)
 
 
 @diff_bp.route("/workflow", methods=["POST"])
@@ -90,9 +86,9 @@ def diff_workflow():
         mode = body.get("mode", "full")  # full | tasks | significant
 
         if not workflow_name:
-            return _error("workflowName is required", "VALIDATION_ERROR")
+            return error_response("workflowName is required", "VALIDATION_ERROR")
         if version_a is None or version_b is None:
-            return _error("versionA and versionB are required", "VALIDATION_ERROR")
+            return error_response("versionA and versionB are required", "VALIDATION_ERROR")
 
         client = ConductorClient()
         def_a = client.get_workflow_definition(workflow_name, version=version_a)
@@ -127,7 +123,7 @@ def diff_workflow():
         })
     except Exception as exc:
         current_app.logger.error("diff_workflow error: %s", exc, exc_info=True)
-        return _error(str(exc), "DIFF_ERROR", 500)
+        return error_response(str(exc), "DIFF_ERROR", 500)
 
 
 @diff_bp.route("/dependency-map", methods=["GET"])
@@ -168,7 +164,7 @@ def dependency_map():
         })
     except Exception as exc:
         current_app.logger.error("dependency_map error: %s", exc, exc_info=True)
-        return _error(str(exc), "DEPENDENCY_ERROR", 500)
+        return error_response(str(exc), "DEPENDENCY_ERROR", 500)
 
 
 @diff_bp.route("/impact", methods=["POST"])
@@ -179,7 +175,7 @@ def impact_analysis():
         task_type = body.get("taskType", "").strip()
 
         if not task_type:
-            return _error("taskType is required", "VALIDATION_ERROR")
+            return error_response("taskType is required", "VALIDATION_ERROR")
 
         client = ConductorClient()
         definitions = client.list_workflow_definitions()
@@ -221,4 +217,4 @@ def impact_analysis():
         })
     except Exception as exc:
         current_app.logger.error("impact_analysis error: %s", exc, exc_info=True)
-        return _error(str(exc), "IMPACT_ERROR", 500)
+        return error_response(str(exc), "IMPACT_ERROR", 500)

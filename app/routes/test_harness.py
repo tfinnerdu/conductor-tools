@@ -13,12 +13,9 @@ from flask import Blueprint, current_app, jsonify, request
 from app.conductor_client import ConductorClient
 from app.models.test_preset import TestPreset
 from app import db
+from app.utils.responses import error_response
 
 test_harness_bp = Blueprint("test_harness", __name__, url_prefix="/api/v1/test-harness")
-
-
-def _error(message: str, code: str, status: int = 400):
-    return jsonify({"error": message, "code": code, "request_id": str(uuid.uuid4())}), status
 
 
 # ---------------------------------------------------------------------------
@@ -234,7 +231,7 @@ def list_workflows():
         return jsonify({"workflows": result})
     except Exception as exc:
         current_app.logger.error("list_workflows error: %s", exc, exc_info=True)
-        return _error(str(exc), "LIST_ERROR", 500)
+        return error_response(str(exc), "LIST_ERROR", 500)
 
 
 @test_harness_bp.get("/workflows/<name>/tasks")
@@ -271,7 +268,7 @@ def get_workflow_tasks(name: str):
         )
     except Exception as exc:
         current_app.logger.error("get_workflow_tasks error: %s", exc, exc_info=True)
-        return _error(str(exc), "TASKS_ERROR", 500)
+        return error_response(str(exc), "TASKS_ERROR", 500)
 
 
 @test_harness_bp.post("/run")
@@ -292,7 +289,7 @@ def run_test():
     task_mocks = body.get("task_mocks") or {}
 
     if not workflow_name:
-        return _error("workflow_name is required", "VALIDATION_ERROR")
+        return error_response("workflow_name is required", "VALIDATION_ERROR")
 
     try:
         client = ConductorClient()
@@ -334,7 +331,7 @@ def run_test():
 
     except Exception as exc:
         current_app.logger.error("run_test error: %s", exc, exc_info=True)
-        return _error(str(exc), "RUN_ERROR", 500)
+        return error_response(str(exc), "RUN_ERROR", 500)
 
 
 @test_harness_bp.get("/presets")
@@ -363,7 +360,7 @@ def get_presets():
         return jsonify({"presets": builtins + db_list})
     except Exception as exc:
         current_app.logger.error("get_presets error: %s", exc, exc_info=True)
-        return _error(str(exc), "PRESET_ERROR", 500)
+        return error_response(str(exc), "PRESET_ERROR", 500)
 
 
 @test_harness_bp.post("/presets")
@@ -375,7 +372,7 @@ def save_preset():
     body = request.get_json(force=True) or {}
     name = (body.get("name") or "").strip()
     if not name:
-        return _error("name is required", "VALIDATION_ERROR")
+        return error_response("name is required", "VALIDATION_ERROR")
 
     workflow_name = (body.get("workflow_name") or body.get("workflowName") or "").strip()
 
@@ -395,4 +392,4 @@ def save_preset():
     except Exception as exc:
         db.session.rollback()
         current_app.logger.error("save_preset error: %s", exc, exc_info=True)
-        return _error(str(exc), "PRESET_SAVE_ERROR", 500)
+        return error_response(str(exc), "PRESET_SAVE_ERROR", 500)

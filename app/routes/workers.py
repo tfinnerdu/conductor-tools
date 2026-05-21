@@ -1,16 +1,12 @@
 """Workers routes — /api/v1/workers/*"""
 import time
-import uuid
 
 from flask import Blueprint, current_app, jsonify, request
 
 from app.conductor_client import ConductorClient
+from app.utils.responses import error_response
 
 workers_bp = Blueprint("workers", __name__, url_prefix="/api/v1/workers")
-
-
-def _error(message: str, code: str, status: int = 400):
-    return jsonify({"error": message, "code": code, "request_id": str(uuid.uuid4())}), status
 
 
 def _classify_worker(seconds_since_poll: float) -> str:
@@ -103,7 +99,7 @@ def worker_status():
         })
     except Exception as exc:
         current_app.logger.error("worker_status error: %s", exc, exc_info=True)
-        return _error(str(exc), "WORKER_STATUS_ERROR", 500)
+        return error_response(str(exc), "WORKER_STATUS_ERROR", 500)
 
 
 @workers_bp.route("/<task_type>/performance", methods=["GET"])
@@ -115,4 +111,4 @@ def worker_performance(task_type: str):
         return jsonify(perf)
     except Exception as exc:
         current_app.logger.error("worker_performance error: %s", exc, exc_info=True)
-        return _error(str(exc), "PERF_ERROR", 500)
+        return error_response(str(exc), "PERF_ERROR", 500)

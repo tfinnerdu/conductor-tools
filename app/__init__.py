@@ -3,8 +3,9 @@ import logging
 import os
 import sys
 import time
+import uuid
 
-from flask import Flask
+from flask import Flask, g
 from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
@@ -27,6 +28,11 @@ def create_app(config_override=None):
     if config_override:
         app.config.update(config_override)
 
+    # Per-request correlation ID — threaded through all downstream calls
+    @app.before_request
+    def _set_request_id():
+        g.request_id = str(uuid.uuid4())
+
     # Configure structured JSON logging to stdout
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(StructuredFormatter())
@@ -39,6 +45,15 @@ def create_app(config_override=None):
     # Start APScheduler for daily digest caching
     from app.routes.digest import init_scheduler
     init_scheduler(app)
+
+    # Swagger UI — conformance requirement S-024
+    from flask_swagger_ui import get_swaggerui_blueprint
+    swagger_ui_bp = get_swaggerui_blueprint(
+        "/swagger",
+        "/static/openapi.yaml",
+        config={"app_name": "Conductor Companion"},
+    )
+    app.register_blueprint(swagger_ui_bp)
 
     # Register blueprints
     from app.routes.health import health_bp

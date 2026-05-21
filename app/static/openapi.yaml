@@ -1,0 +1,390 @@
+openapi: "3.0.3"
+info:
+  title: Conductor Companion
+  description: >
+    Operator console for Orkes Conductor workflow orchestration at Doane University.
+    Provides search, diff, reconciler, batch migration tracking, JQ Lab,
+    secret management, worker status, test harness, Ethos integration,
+    Salesforce console, correlation tracer, and daily digest capabilities.
+  version: "1.0.0"
+  contact:
+    name: Doane University Platform Team
+    email: platform@doane.edu
+
+servers:
+  - url: /
+    description: Local dev
+
+tags:
+  - name: health
+    description: Liveness and readiness probes
+  - name: search
+    description: Workflow execution search
+  - name: workers
+    description: Worker queue status and performance
+  - name: batches
+    description: Migration batch tracking
+  - name: diff
+    description: Workflow version diff and dependency map
+  - name: jq
+    description: JQ expression lab
+  - name: secrets
+    description: Conductor secret management
+  - name: reconciler
+    description: Error reconciler and bulk retry
+  - name: tracer
+    description: End-to-end correlation tracer
+  - name: test-harness
+    description: Workflow test harness (mock execution)
+  - name: digest
+    description: Daily performance digest
+  - name: ethos
+    description: Ethos change notification integration
+  - name: sf
+    description: Salesforce console
+
+paths:
+  /api/v1/health:
+    get:
+      tags: [health]
+      summary: Liveness probe
+      description: >
+        Always returns 200 while the process is alive.
+        Safe for Pingdom / Uptime Kuma at 30s cadence.
+        No dependency calls, no DB writes.
+      responses:
+        "200":
+          description: Process alive
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, service, version, uptime_seconds]
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+                  service:
+                    type: string
+                    example: conductor-companion
+                  version:
+                    type: string
+                    example: "1.0.0"
+                  uptime_seconds:
+                    type: integer
+                    example: 412
+
+  /api/v1/health/deep:
+    get:
+      tags: [health]
+      summary: Readiness probe with dependency checks
+      description: >
+        Probes DB and Conductor. Returns 200 when all critical dependencies
+        respond; 503 when any critical dependency is down.
+        Intended for CI gates and admin diagnostics — not automated polling.
+      responses:
+        "200":
+          description: All checks passing (or degraded-but-non-critical)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeepHealthResponse"
+        "503":
+          description: Critical dependency down
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeepHealthResponse"
+
+  /api/v1/search/executions:
+    post:
+      tags: [search]
+      summary: Search workflow executions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                workflowType:
+                  type: string
+                status:
+                  type: string
+                  enum: [RUNNING, COMPLETED, FAILED, TIMED_OUT, PAUSED]
+                freeText:
+                  type: string
+                size:
+                  type: integer
+                  default: 20
+      responses:
+        "200":
+          description: Search results
+
+  /api/v1/workers/status:
+    get:
+      tags: [workers]
+      summary: Worker queue status
+      responses:
+        "200":
+          description: Worker registry with health classification
+
+  /api/v1/batches:
+    get:
+      tags: [batches]
+      summary: List all migration batches
+      responses:
+        "200":
+          description: Array of batch records
+    post:
+      tags: [batches]
+      summary: Create a migration batch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, workflowName]
+              properties:
+                name:
+                  type: string
+                workflowName:
+                  type: string
+                correlationIdPrefix:
+                  type: string
+                totalExpected:
+                  type: integer
+      responses:
+        "201":
+          description: Batch created
+        "400":
+          $ref: "#/components/responses/ErrorEnvelope"
+
+  /api/v1/diff/workflows:
+    get:
+      tags: [diff]
+      summary: List workflow names and available versions
+      responses:
+        "200":
+          description: Workflow list with version arrays
+
+  /api/v1/diff/workflow:
+    post:
+      tags: [diff]
+      summary: Diff two workflow versions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [workflowName, versionA, versionB]
+              properties:
+                workflowName:
+                  type: string
+                versionA:
+                  type: integer
+                versionB:
+                  type: integer
+                mode:
+                  type: string
+                  enum: [full, tasks, significant]
+                  default: full
+      responses:
+        "200":
+          description: Diff result with line-level changes
+
+  /api/v1/jq/evaluate:
+    post:
+      tags: [jq]
+      summary: Evaluate a JQ expression against a JSON payload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [expression]
+              properties:
+                expression:
+                  type: string
+                input:
+                  type: object
+      responses:
+        "200":
+          description: JQ evaluation result
+
+  /api/v1/secrets:
+    get:
+      tags: [secrets]
+      summary: List Conductor secret names
+      responses:
+        "200":
+          description: Array of secret names (values are never returned)
+
+  /api/v1/reconciler/failures:
+    post:
+      tags: [reconciler]
+      summary: Group failed workflow executions by failure type
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [workflowName]
+              properties:
+                workflowName:
+                  type: string
+                hoursBack:
+                  type: integer
+                  default: 24
+      responses:
+        "200":
+          description: Failure groups with error codes and workflow IDs
+
+  /api/v1/tracer/person:
+    post:
+      tags: [tracer]
+      summary: Trace a person across Conductor, Salesforce, and Ethos
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                guid:
+                  type: string
+                  format: uuid
+                sis_id:
+                  type: string
+      responses:
+        "200":
+          description: Unified event timeline
+
+  /api/v1/test-harness/run:
+    post:
+      tags: [test-harness]
+      summary: Run a workflow definition against mock task outputs
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [workflow_name]
+              properties:
+                workflow_name:
+                  type: string
+                workflow_input:
+                  type: object
+                task_mocks:
+                  type: object
+      responses:
+        "200":
+          description: Synthetic execution result
+
+  /api/v1/digest/daily:
+    get:
+      tags: [digest]
+      summary: Daily workflow performance digest
+      parameters:
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: hours_back
+          in: query
+          schema:
+            type: integer
+            default: 24
+      responses:
+        "200":
+          description: Digest with workflow stats, regressions, worker health
+
+  /api/v1/ethos/person/{guid}:
+    get:
+      tags: [ethos]
+      summary: Fetch a person record from Ethos by GUID
+      parameters:
+        - name: guid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Ethos EEDM persons record
+
+  /api/v1/sf/person/{identifier}:
+    get:
+      tags: [sf]
+      summary: Look up a person in Salesforce by SIS_ID or Ethos GUID
+      parameters:
+        - name: identifier
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: SF Account records with diagnosis
+
+components:
+  schemas:
+    DeepHealthResponse:
+      type: object
+      required: [status, service, version, uptime_seconds, mock, checks]
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded]
+        service:
+          type: string
+        version:
+          type: string
+        uptime_seconds:
+          type: integer
+        mock:
+          type: boolean
+          description: True when Conductor is running in mock mode (CONDUCTOR_URL unset)
+        request_id:
+          type: string
+          format: uuid
+        checks:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              ok:
+                type: boolean
+              latency_ms:
+                type: integer
+              detail:
+                type: string
+
+    ErrorEnvelope:
+      type: object
+      required: [error, code, request_id]
+      properties:
+        error:
+          type: string
+          description: Human-readable error message
+        code:
+          type: string
+          description: Machine-readable error code (e.g. VALIDATION_ERROR, NOT_FOUND)
+        request_id:
+          type: string
+          format: uuid
+
+  responses:
+    ErrorEnvelope:
+      description: Standard error response
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"

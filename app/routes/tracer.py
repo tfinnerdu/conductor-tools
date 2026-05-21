@@ -4,7 +4,6 @@ End-to-End Correlation Tracer: given a GUID or SIS_ID, produces a unified
 timeline of events across Conductor (real), Salesforce, and Ethos.
 """
 import re
-import uuid
 from collections import deque
 from datetime import datetime, timezone
 
@@ -12,6 +11,7 @@ from flask import Blueprint, current_app, jsonify, request
 
 from app.conductor_client import ConductorClient
 from app import sf_provider, ethos_provider
+from app.utils.responses import error_response
 
 tracer_bp = Blueprint("tracer", __name__, url_prefix="/api/v1/tracer")
 
@@ -23,10 +23,6 @@ _UUID_RE = re.compile(
     r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
     re.IGNORECASE,
 )
-
-
-def _error(message: str, code: str, status: int = 400):
-    return jsonify({"error": message, "code": code, "request_id": str(uuid.uuid4())}), status
 
 
 def _is_guid(identifier: str) -> bool:
@@ -156,7 +152,7 @@ def trace_person():
     sis_id = (body.get("sis_id") or "").strip()
 
     if not guid and not sis_id:
-        return _error("At least one of guid or sis_id is required", "VALIDATION_ERROR")
+        return error_response("At least one of guid or sis_id is required", "VALIDATION_ERROR")
 
     identifier = guid or sis_id
 
@@ -208,7 +204,7 @@ def trace_person():
         )
     except Exception as exc:
         current_app.logger.error("trace_person error: %s", exc, exc_info=True)
-        return _error(str(exc), "TRACE_ERROR", 500)
+        return error_response(str(exc), "TRACE_ERROR", 500)
 
 
 @tracer_bp.get("/recent")
@@ -225,7 +221,7 @@ def trace_person_get(identifier: str):
     """
     identifier = identifier.strip()
     if not identifier:
-        return _error("identifier is required", "VALIDATION_ERROR")
+        return error_response("identifier is required", "VALIDATION_ERROR")
 
     if _is_guid(identifier):
         body = {"guid": identifier, "sis_id": ""}
@@ -275,4 +271,4 @@ def trace_person_get(identifier: str):
         )
     except Exception as exc:
         current_app.logger.error("trace_person_get error: %s", exc, exc_info=True)
-        return _error(str(exc), "TRACE_ERROR", 500)
+        return error_response(str(exc), "TRACE_ERROR", 500)

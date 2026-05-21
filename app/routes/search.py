@@ -1,7 +1,6 @@
 """Advanced search routes — /api/v1/search/*"""
 import csv
 import io
-import uuid
 from datetime import datetime
 
 from flask import Blueprint, current_app, jsonify, request, Response
@@ -9,12 +8,9 @@ from flask import Blueprint, current_app, jsonify, request, Response
 from app.conductor_client import ConductorClient
 from app.models.saved_search import SavedSearch
 from app import db
+from app.utils.responses import error_response
 
 search_bp = Blueprint("search", __name__, url_prefix="/api/v1/search")
-
-
-def _error(message: str, code: str, status: int = 400):
-    return jsonify({"error": message, "code": code, "request_id": str(uuid.uuid4())}), status
 
 
 def _matches_filter(result: dict, filters: list) -> bool:
@@ -109,7 +105,7 @@ def advanced_search():
         )
     except Exception as exc:
         current_app.logger.error("advanced_search error: %s", exc, exc_info=True)
-        return _error(str(exc), "SEARCH_ERROR", 500)
+        return error_response(str(exc), "SEARCH_ERROR", 500)
 
 
 @search_bp.route("/saved", methods=["GET"])
@@ -120,7 +116,7 @@ def list_saved_searches():
         return jsonify([s.to_dict() for s in searches])
     except Exception as exc:
         current_app.logger.error("list_saved_searches error: %s", exc, exc_info=True)
-        return _error(str(exc), "DB_ERROR", 500)
+        return error_response(str(exc), "DB_ERROR", 500)
 
 
 @search_bp.route("/saved", methods=["POST"])
@@ -130,7 +126,7 @@ def create_saved_search():
         body = request.get_json(force=True) or {}
         name = body.get("name", "").strip()
         if not name:
-            return _error("name is required", "VALIDATION_ERROR")
+            return error_response("name is required", "VALIDATION_ERROR")
 
         saved = SavedSearch(
             name=name,
@@ -144,7 +140,7 @@ def create_saved_search():
     except Exception as exc:
         db.session.rollback()
         current_app.logger.error("create_saved_search error: %s", exc, exc_info=True)
-        return _error(str(exc), "DB_ERROR", 500)
+        return error_response(str(exc), "DB_ERROR", 500)
 
 
 @search_bp.route("/saved/<int:search_id>", methods=["DELETE"])
@@ -153,14 +149,14 @@ def delete_saved_search(search_id):
     try:
         saved = db.session.get(SavedSearch, search_id)
         if not saved:
-            return _error("Not found", "NOT_FOUND", 404)
+            return error_response("Not found", "NOT_FOUND", 404)
         db.session.delete(saved)
         db.session.commit()
         return jsonify({"deleted": True, "id": search_id})
     except Exception as exc:
         db.session.rollback()
         current_app.logger.error("delete_saved_search error: %s", exc, exc_info=True)
-        return _error(str(exc), "DB_ERROR", 500)
+        return error_response(str(exc), "DB_ERROR", 500)
 
 
 @search_bp.route("/export", methods=["POST"])
@@ -207,4 +203,4 @@ def export_csv():
         )
     except Exception as exc:
         current_app.logger.error("export_csv error: %s", exc, exc_info=True)
-        return _error(str(exc), "EXPORT_ERROR", 500)
+        return error_response(str(exc), "EXPORT_ERROR", 500)

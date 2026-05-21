@@ -1,7 +1,6 @@
 """Batches routes — /api/v1/batches/*"""
 import csv
 import io
-import uuid
 from datetime import datetime
 
 from flask import Blueprint, current_app, jsonify, request, Response
@@ -9,12 +8,9 @@ from flask import Blueprint, current_app, jsonify, request, Response
 from app.conductor_client import ConductorClient
 from app.models.migration_batch import MigrationBatch
 from app import db
+from app.utils.responses import error_response
 
 batches_bp = Blueprint("batches", __name__, url_prefix="/api/v1/batches")
-
-
-def _error(message: str, code: str, status: int = 400):
-    return jsonify({"error": message, "code": code, "request_id": str(uuid.uuid4())}), status
 
 
 @batches_bp.route("", methods=["GET"])
@@ -25,7 +21,7 @@ def list_batches():
         return jsonify([b.to_dict() for b in batches])
     except Exception as exc:
         current_app.logger.error("list_batches error: %s", exc, exc_info=True)
-        return _error(str(exc), "DB_ERROR", 500)
+        return error_response(str(exc), "DB_ERROR", 500)
 
 
 @batches_bp.route("", methods=["POST"])
@@ -37,9 +33,9 @@ def create_batch():
         workflow_name = body.get("workflowName", "").strip()
 
         if not name:
-            return _error("name is required", "VALIDATION_ERROR")
+            return error_response("name is required", "VALIDATION_ERROR")
         if not workflow_name:
-            return _error("workflowName is required", "VALIDATION_ERROR")
+            return error_response("workflowName is required", "VALIDATION_ERROR")
 
         batch = MigrationBatch(
             name=name,
@@ -55,7 +51,7 @@ def create_batch():
     except Exception as exc:
         db.session.rollback()
         current_app.logger.error("create_batch error: %s", exc, exc_info=True)
-        return _error(str(exc), "DB_ERROR", 500)
+        return error_response(str(exc), "DB_ERROR", 500)
 
 
 @batches_bp.route("/<int:batch_id>/status", methods=["GET"])
@@ -64,7 +60,7 @@ def batch_status(batch_id: int):
     try:
         batch = db.session.get(MigrationBatch, batch_id)
         if not batch:
-            return _error("Batch not found", "NOT_FOUND", 404)
+            return error_response("Batch not found", "NOT_FOUND", 404)
 
         client = ConductorClient()
         page_size = 100
@@ -115,7 +111,7 @@ def batch_status(batch_id: int):
         })
     except Exception as exc:
         current_app.logger.error("batch_status error: %s", exc, exc_info=True)
-        return _error(str(exc), "BATCH_STATUS_ERROR", 500)
+        return error_response(str(exc), "BATCH_STATUS_ERROR", 500)
 
 
 @batches_bp.route("/<int:batch_id>/retry-failures", methods=["POST"])
@@ -124,7 +120,7 @@ def retry_failures(batch_id: int):
     try:
         batch = db.session.get(MigrationBatch, batch_id)
         if not batch:
-            return _error("Batch not found", "NOT_FOUND", 404)
+            return error_response("Batch not found", "NOT_FOUND", 404)
 
         client = ConductorClient()
         page_size = 100
@@ -164,7 +160,7 @@ def retry_failures(batch_id: int):
         })
     except Exception as exc:
         current_app.logger.error("retry_failures error: %s", exc, exc_info=True)
-        return _error(str(exc), "RETRY_ERROR", 500)
+        return error_response(str(exc), "RETRY_ERROR", 500)
 
 
 @batches_bp.route("/<int:batch_id>/export", methods=["GET"])
@@ -173,7 +169,7 @@ def export_batch(batch_id: int):
     try:
         batch = db.session.get(MigrationBatch, batch_id)
         if not batch:
-            return _error("Batch not found", "NOT_FOUND", 404)
+            return error_response("Batch not found", "NOT_FOUND", 404)
 
         client = ConductorClient()
         page_size = 100
@@ -222,4 +218,4 @@ def export_batch(batch_id: int):
         )
     except Exception as exc:
         current_app.logger.error("export_batch error: %s", exc, exc_info=True)
-        return _error(str(exc), "EXPORT_ERROR", 500)
+        return error_response(str(exc), "EXPORT_ERROR", 500)

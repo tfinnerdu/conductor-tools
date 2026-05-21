@@ -1,10 +1,10 @@
 """Salesforce Console routes — /api/v1/sf/*"""
-import uuid
 import re
 
 from flask import Blueprint, current_app, jsonify, request
 
 from app import sf_provider
+from app.utils.responses import error_response
 
 sf_console_bp = Blueprint("sf_console", __name__, url_prefix="/api/v1/sf")
 
@@ -12,10 +12,6 @@ _UUID_RE = re.compile(
     r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
     re.IGNORECASE,
 )
-
-
-def _error(message: str, code: str, status: int = 400):
-    return jsonify({"error": message, "code": code, "request_id": str(uuid.uuid4())}), status
 
 
 def _is_guid(identifier: str) -> bool:
@@ -33,7 +29,7 @@ def get_person(identifier: str):
     try:
         identifier = identifier.strip()
         if not identifier:
-            return _error("identifier is required", "VALIDATION_ERROR")
+            return error_response("identifier is required", "VALIDATION_ERROR")
 
         if _is_guid(identifier):
             result = sf_provider.find_person_by_guid(identifier)
@@ -49,7 +45,7 @@ def get_person(identifier: str):
         return jsonify({**result, "identifier": identifier, "id_type": id_type})
     except Exception as exc:
         current_app.logger.error("sf_console get_person error: %s", exc, exc_info=True)
-        return _error(str(exc), "SF_ERROR", 500)
+        return error_response(str(exc), "SF_ERROR", 500)
 
 
 @sf_console_bp.post("/search")
@@ -64,11 +60,11 @@ def search():
         field = body.get("field", "SIS_ID__c").strip()
 
         if not query:
-            return _error("query is required", "VALIDATION_ERROR")
+            return error_response("query is required", "VALIDATION_ERROR")
 
         allowed_fields = ("SIS_ID__c", "Ethos_Guid__c", "Name")
         if field not in allowed_fields:
-            return _error(
+            return error_response(
                 f"field must be one of: {', '.join(allowed_fields)}",
                 "VALIDATION_ERROR",
             )
@@ -85,7 +81,7 @@ def search():
         return jsonify({**result, "query": query, "field": field})
     except Exception as exc:
         current_app.logger.error("sf_console search error: %s", exc, exc_info=True)
-        return _error(str(exc), "SF_ERROR", 500)
+        return error_response(str(exc), "SF_ERROR", 500)
 
 
 @sf_console_bp.get("/duplicates")
@@ -124,7 +120,7 @@ def find_duplicates():
         })
     except Exception as exc:
         current_app.logger.error("sf_console find_duplicates error: %s", exc, exc_info=True)
-        return _error(str(exc), "SF_ERROR", 500)
+        return error_response(str(exc), "SF_ERROR", 500)
 
 
 @sf_console_bp.get("/health")
@@ -136,4 +132,4 @@ def health():
         return jsonify(result), status_code
     except Exception as exc:
         current_app.logger.error("sf_console health error: %s", exc, exc_info=True)
-        return _error(str(exc), "SF_ERROR", 500)
+        return error_response(str(exc), "SF_ERROR", 500)

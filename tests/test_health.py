@@ -126,29 +126,49 @@ class TestFunctionalChecks:
 
 
 # ---------------------------------------------------------------------------
-# HTTP endpoint tests — routes import from health_checks (same functions)
+# HTTP endpoint tests — /api/v1/health and /api/v1/health/deep
 # ---------------------------------------------------------------------------
 
 class TestHealthEndpoint:
-    def test_returns_200_when_healthy(self, client):
-        with patch("app.routes.health.read_only_checks", return_value={"ok": True, "checks": {"conductor": {"ok": True, "detail": "not_configured"}}}):
-            resp = client.get("/health")
+    def test_returns_200_always(self, client):
+        """Liveness must always return 200 — it is never 503."""
+        resp = client.get("/api/v1/health")
         assert resp.status_code == 200
+
+    def test_status_is_always_ok(self, client):
+        """Liveness status string must be 'ok' with no exceptions."""
+        resp = client.get("/api/v1/health")
         data = resp.get_json()
         assert data["status"] == "ok"
-        assert data["service"] == "conductor-companion"
-        assert "uptime_seconds" in data
-        assert "checks" in data
 
-    def test_returns_503_when_degraded(self, client):
-        with patch("app.routes.health.read_only_checks", return_value={"ok": False, "checks": {"conductor": {"ok": False, "detail": "timeout"}}}):
-            resp = client.get("/health")
-        assert resp.status_code == 503
-        assert resp.get_json()["status"] == "degraded"
+    def test_required_body_keys(self, client):
+        """Liveness body must include exactly status, service, version, uptime_seconds."""
+        resp = client.get("/api/v1/health")
+        data = resp.get_json()
+        for key in ("status", "service", "version", "uptime_seconds"):
+            assert key in data, f"Missing required key: {key}"
 
-    def test_includes_version(self, client):
-        with patch("app.routes.health.read_only_checks", return_value={"ok": True, "checks": {}}):
-            resp = client.get("/health")
+    def test_service_name(self, client):
+        resp = client.get("/api/v1/health")
+        assert resp.get_json()["service"] == "conductor-companion"
+
+    def test_uptime_seconds_is_integer(self, client):
+        resp = client.get("/api/v1/health")
+        assert isinstance(resp.get_json()["uptime_seconds"], int)
+
+    def test_no_checks_key_in_liveness(self, client):
+        """Liveness must NOT include a 'checks' key — that belongs to /deep."""
+        resp = client.get("/api/v1/health")
+        assert "checks" not in resp.get_json()
+
+    def test_legacy_path_redirects_308(self, client):
+        """Bare /health must 308-redirect to /api/v1/health (transition shim)."""
+        resp = client.get("/health")
+        assert resp.status_code == 308
+        assert "/api/v1/health" in resp.headers.get("Location", "")
+
+    def test_version_present(self, client):
+        resp = client.get("/api/v1/health")
         assert "version" in resp.get_json()
 
 
@@ -162,7 +182,7 @@ class TestHealthDeepEndpoint:
                     "conductor": {"ok": True, "latency_ms": None, "detail": "mock_mode"},
                 },
             }):
-                resp = client.get("/health/deep")
+                resp = client.get("/api/v1/health/deep")
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["status"] == "ok"
@@ -179,17 +199,42 @@ class TestHealthDeepEndpoint:
                     "conductor": {"ok": True, "latency_ms": None, "detail": "mock_mode"},
                 },
             }):
-                resp = client.get("/health/deep")
+                resp = client.get("/api/v1/health/deep")
         assert resp.status_code == 503
         assert resp.get_json()["status"] == "degraded"
 
-    def test_never_called_by_automated_monitor(self, client):
-        # Verify the deep endpoint path differs from /health so Pingdom
-        # can't accidentally be wired to it.
-        resp_live = client.get("/health")
-        resp_deep = client.get("/health/deep")
-        assert resp_live.status_code in (200, 503)
-        assert resp_deep.status_code in (200, 503)
-        # Deep endpoint must include per-component check detail
-        deep_data = resp_deep.get_json()
-        assert "db" in deep_data.get("checks", {})
+    def test_mock_key_present_in_mock_mode(self, client):
+        """Deep health must include 'mock' key — required for mock/live signal."""
+        with patch.dict(os.environ, {"CONDUCTOR_URL": ""}):
+            with patch("app.routes.health.functional_checks", return_value={
+                "ok": True, "checks": {"db": {"ok": True, "latency_ms": 1, "detail": "connected"},
+                                       "conductor": {"ok": True, "latency_ms": None, "detail": "mock_mode"}},
+            }):
+                resp = client.get("/api/v1/health/deep")
+        data = resp.get_json()
+        assert "mock" in data, "Deep health must include 'mock' key"
+        assert data["mock"] is True  # CONDUCTOR_URL is empty → mock mode
+
+    def test_mock_is_false_when_live(self, client):
+        with patch.dict(os.environ, {"CONDUCTOR_URL": "http://conductor.doane.edu"}):
+            with patch("app.routes.health.functional_checks", return_value={
+                "ok": True, "checks": {"db": {"ok": True, "latency_ms": 1, "detail": "connected"},
+                                       "conductor": {"ok": True, "latency_ms": 10, "detail": "reachable"}},
+            }):
+                resp = client.get("/api/v1/health/deep")
+        assert resp.get_json()["mock"] is False
+
+    def test_legacy_deep_path_redirects_308(self, client):
+        """Bare /health/deep must 308-redirect (transition shim)."""
+        resp = client.get("/health/deep")
+        assert resp.status_code == 308
+        assert "/api/v1/health/deep" in resp.headers.get("Location", "")
+
+    def test_paths_are_distinct(self, client):
+        """Liveness and readiness must be on distinct paths."""
+        live_resp = client.get("/api/v1/health")
+        deep_resp = client.get("/api/v1/health/deep")
+        assert live_resp.status_code == 200
+        assert deep_resp.status_code in (200, 503)
+        deep_data = deep_resp.get_json()
+        assert "db" in deep_data.get("checks", {}), "Deep endpoint must include per-component check detail"

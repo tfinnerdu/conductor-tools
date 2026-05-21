@@ -1,18 +1,14 @@
 """JQ Lab routes — /api/v1/jq/*"""
 import json
-import uuid
 
 from flask import Blueprint, current_app, jsonify, request
 
 from app.conductor_client import ConductorClient
 from app.models.jq_expression import JqExpression
 from app import db
+from app.utils.responses import error_response
 
 jq_lab_bp = Blueprint("jq_lab", __name__, url_prefix="/api/v1/jq")
-
-
-def _error(message: str, code: str, status: int = 400):
-    return jsonify({"error": message, "code": code, "request_id": str(uuid.uuid4())}), status
 
 
 @jq_lab_bp.route("/evaluate", methods=["POST"])
@@ -26,7 +22,7 @@ def evaluate():
         input_data = body.get("input", {})
 
         if not expression:
-            return _error("expression is required", "VALIDATION_ERROR")
+            return error_response("expression is required", "VALIDATION_ERROR")
 
         # Accept either a dict or a JSON string
         if isinstance(input_data, str):
@@ -42,10 +38,10 @@ def evaluate():
             return jsonify({"result": None, "error": str(jq_err)})
 
     except ImportError:
-        return _error("jq library not installed", "DEPENDENCY_ERROR", 500)
+        return error_response("jq library not installed", "DEPENDENCY_ERROR", 500)
     except Exception as exc:
         current_app.logger.error("evaluate jq error: %s", exc, exc_info=True)
-        return _error(str(exc), "JQ_ERROR", 500)
+        return error_response(str(exc), "JQ_ERROR", 500)
 
 
 @jq_lab_bp.route("/load-from-execution", methods=["GET"])
@@ -56,7 +52,7 @@ def load_from_execution():
     task_index = request.args.get("taskIndex")
 
     if not workflow_id:
-        return _error("workflowId is required", "VALIDATION_ERROR")
+        return error_response("workflowId is required", "VALIDATION_ERROR")
 
     try:
         client = ConductorClient()
@@ -101,7 +97,7 @@ def load_from_execution():
 
     except Exception as exc:
         current_app.logger.error("load_from_execution error: %s", exc, exc_info=True)
-        return _error(str(exc), "EXECUTION_ERROR", 500)
+        return error_response(str(exc), "EXECUTION_ERROR", 500)
 
 
 @jq_lab_bp.route("/expressions", methods=["GET"])
@@ -121,7 +117,7 @@ def list_expressions():
         return jsonify([e.to_dict() for e in expressions])
     except Exception as exc:
         current_app.logger.error("list_expressions error: %s", exc, exc_info=True)
-        return _error(str(exc), "DB_ERROR", 500)
+        return error_response(str(exc), "DB_ERROR", 500)
 
 
 @jq_lab_bp.route("/expressions", methods=["POST"])
@@ -133,9 +129,9 @@ def save_expression():
         expression = body.get("expression", "").strip()
 
         if not name:
-            return _error("name is required", "VALIDATION_ERROR")
+            return error_response("name is required", "VALIDATION_ERROR")
         if not expression:
-            return _error("expression is required", "VALIDATION_ERROR")
+            return error_response("expression is required", "VALIDATION_ERROR")
 
         expr = JqExpression(
             name=name,
@@ -152,7 +148,7 @@ def save_expression():
     except Exception as exc:
         db.session.rollback()
         current_app.logger.error("save_expression error: %s", exc, exc_info=True)
-        return _error(str(exc), "DB_ERROR", 500)
+        return error_response(str(exc), "DB_ERROR", 500)
 
 
 @jq_lab_bp.route("/format-as-conductor-task", methods=["POST"])
@@ -166,7 +162,7 @@ def format_as_conductor_task():
         input_key = body.get("inputKey", "input").strip()
 
         if not expression:
-            return _error("expression is required", "VALIDATION_ERROR")
+            return error_response("expression is required", "VALIDATION_ERROR")
 
         task_json = {
             "name": task_name,
@@ -181,4 +177,4 @@ def format_as_conductor_task():
         return jsonify({"task": task_json, "json": json.dumps(task_json, indent=2)})
     except Exception as exc:
         current_app.logger.error("format_as_conductor_task error: %s", exc, exc_info=True)
-        return _error(str(exc), "FORMAT_ERROR", 500)
+        return error_response(str(exc), "FORMAT_ERROR", 500)

@@ -116,7 +116,7 @@ class TestAdvancedSearchEndpoint:
         assert resp.get_json()["deleted"] is True
 
     def test_health_endpoint(self, client):
-        resp = client.get("/health")
+        resp = client.get("/api/v1/health")
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["status"] == "ok"

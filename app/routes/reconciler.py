@@ -4,17 +4,13 @@ Error Reconciler: groups failed workflow executions by the task type that
 failed, surfaces error codes, and provides bulk-retry support.
 """
 import re
-import uuid
 
 from flask import Blueprint, current_app, jsonify, request
 
 from app.conductor_client import ConductorClient
+from app.utils.responses import error_response
 
 reconciler_bp = Blueprint("reconciler", __name__, url_prefix="/api/v1/reconciler")
-
-
-def _error(message: str, code: str, status: int = 400):
-    return jsonify({"error": message, "code": code, "request_id": str(uuid.uuid4())}), status
 
 
 def _extract_error_code(reason: str) -> str:
@@ -103,7 +99,7 @@ def list_failures():
         )
     except Exception as exc:
         current_app.logger.error("list_failures error: %s", exc, exc_info=True)
-        return _error(str(exc), "RECONCILER_ERROR", 500)
+        return error_response(str(exc), "RECONCILER_ERROR", 500)
 
 
 @reconciler_bp.get("/failures/<workflow_id>")
@@ -159,7 +155,7 @@ def get_failure_detail(workflow_id: str):
         return jsonify(detail)
     except Exception as exc:
         current_app.logger.error("get_failure_detail error: %s", exc, exc_info=True)
-        return _error(str(exc), "DETAIL_ERROR", 500)
+        return error_response(str(exc), "DETAIL_ERROR", 500)
 
 
 @reconciler_bp.post("/failures/bulk-retry")
@@ -173,11 +169,11 @@ def bulk_retry():
     workflow_ids = body.get("workflow_ids", [])
 
     if not isinstance(workflow_ids, list):
-        return _error("workflow_ids must be an array", "VALIDATION_ERROR")
+        return error_response("workflow_ids must be an array", "VALIDATION_ERROR")
     if len(workflow_ids) == 0:
-        return _error("workflow_ids must not be empty", "VALIDATION_ERROR")
+        return error_response("workflow_ids must not be empty", "VALIDATION_ERROR")
     if len(workflow_ids) > 500:
-        return _error("Cannot retry more than 500 workflows at once", "LIMIT_EXCEEDED")
+        return error_response("Cannot retry more than 500 workflows at once", "LIMIT_EXCEEDED")
 
     client = ConductorClient()
     retried = 0
@@ -255,4 +251,4 @@ def failure_summary():
         )
     except Exception as exc:
         current_app.logger.error("failure_summary error: %s", exc, exc_info=True)
-        return _error(str(exc), "SUMMARY_ERROR", 500)
+        return error_response(str(exc), "SUMMARY_ERROR", 500)

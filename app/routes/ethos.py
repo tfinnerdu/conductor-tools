@@ -1,15 +1,10 @@
 """Ethos Integration routes — /api/v1/ethos/*"""
-import uuid
-
 from flask import Blueprint, current_app, jsonify, request
 
 from app import ethos_provider
+from app.utils.responses import error_response
 
 ethos_bp = Blueprint("ethos", __name__, url_prefix="/api/v1/ethos")
-
-
-def _error(message: str, code: str, status: int = 400):
-    return jsonify({"error": message, "code": code, "request_id": str(uuid.uuid4())}), status
 
 
 @ethos_bp.get("/person/<guid>")
@@ -20,7 +15,7 @@ def get_person(guid: str):
         return jsonify(person)
     except Exception as exc:
         current_app.logger.error("ethos get_person error: %s", exc, exc_info=True)
-        return _error(str(exc), "ETHOS_ERROR", 500)
+        return error_response(str(exc), "ETHOS_ERROR", 500)
 
 
 @ethos_bp.get("/events")
@@ -38,7 +33,7 @@ def get_events():
         return jsonify({"events": events, "count": len(events), "resource": resource})
     except Exception as exc:
         current_app.logger.error("ethos get_events error: %s", exc, exc_info=True)
-        return _error(str(exc), "ETHOS_ERROR", 500)
+        return error_response(str(exc), "ETHOS_ERROR", 500)
 
 
 @ethos_bp.post("/events")
@@ -50,7 +45,7 @@ def ingest_event():
     try:
         body = request.get_json(force=True) or {}
         if not body.get("resource"):
-            return _error("resource is required", "VALIDATION_ERROR")
+            return error_response("resource is required", "VALIDATION_ERROR")
 
         from app import ethos_provider as ep
         ep.ingest_event(body)
@@ -61,7 +56,7 @@ def ingest_event():
         })
     except Exception as exc:
         current_app.logger.error("ethos ingest_event error: %s", exc, exc_info=True)
-        return _error(str(exc), "ETHOS_ERROR", 500)
+        return error_response(str(exc), "ETHOS_ERROR", 500)
 
 
 @ethos_bp.get("/health")
@@ -73,7 +68,7 @@ def health():
         return jsonify(result), status_code
     except Exception as exc:
         current_app.logger.error("ethos health error: %s", exc, exc_info=True)
-        return _error(str(exc), "ETHOS_ERROR", 500)
+        return error_response(str(exc), "ETHOS_ERROR", 500)
 
 
 @ethos_bp.post("/search")
@@ -88,10 +83,10 @@ def search_persons():
         limit = int(body.get("limit", 20))
 
         if not query:
-            return _error("query is required", "VALIDATION_ERROR")
+            return error_response("query is required", "VALIDATION_ERROR")
 
         results = ethos_provider.search_persons(query=query, limit=limit)
         return jsonify({"results": results, "count": len(results), "query": query})
     except Exception as exc:
         current_app.logger.error("ethos search_persons error: %s", exc, exc_info=True)
-        return _error(str(exc), "ETHOS_ERROR", 500)
+        return error_response(str(exc), "ETHOS_ERROR", 500)

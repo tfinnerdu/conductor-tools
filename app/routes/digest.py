@@ -4,12 +4,12 @@ Performance Digest: daily summaries of workflow activity, failure trends,
 regressions, and worker health.  Uses APScheduler to cache results at 06:00
 daily; falls back to on-demand generation if no cached result exists.
 """
-import uuid
 from datetime import datetime, timezone, timedelta
 
 from flask import Blueprint, current_app, jsonify, request
 
 from app.conductor_client import ConductorClient
+from app.utils.responses import error_response
 
 digest_bp = Blueprint("digest", __name__, url_prefix="/api/v1/digest")
 
@@ -19,10 +19,6 @@ digest_bp = Blueprint("digest", __name__, url_prefix="/api/v1/digest")
 
 _digest_cache: dict = {}  # {date_str: digest_dict}
 _MAX_CACHE = 7
-
-
-def _error(message: str, code: str, status: int = 400):
-    return jsonify({"error": message, "code": code, "request_id": str(uuid.uuid4())}), status
 
 
 def _today_str() -> str:
@@ -243,7 +239,7 @@ def daily_digest():
         return jsonify(digest)
     except Exception as exc:
         current_app.logger.error("daily_digest error: %s", exc, exc_info=True)
-        return _error(str(exc), "DIGEST_ERROR", 500)
+        return error_response(str(exc), "DIGEST_ERROR", 500)
 
 
 @digest_bp.get("/workflow/<name>/history")
@@ -339,4 +335,4 @@ def recommendations():
         return jsonify({"recommendations": recs, "generated_for": today})
     except Exception as exc:
         current_app.logger.error("recommendations error: %s", exc, exc_info=True)
-        return _error(str(exc), "RECOMMENDATIONS_ERROR", 500)
+        return error_response(str(exc), "RECOMMENDATIONS_ERROR", 500)

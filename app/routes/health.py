@@ -1,74 +1,84 @@
 """Health check endpoints.
 
-GET /health       — read-only, live-safe. Uptime + lightweight Conductor probe.
-                    Safe for Pingdom / Uptime Kuma at 30s cadence.
+GET /api/v1/health      — liveness, always 200. Process-alive signal only.
+                          Safe for Pingdom / Uptime Kuma at 30s cadence.
+                          No dependency calls, no DB writes, no audit emissions.
 
-GET /health/deep  — functional / CI-only. DB round-trip + real Conductor API call.
-                    Never wire to automated polling.
+GET /api/v1/health/deep — readiness with dependency probes. DB + Conductor.
+                          Returns 200 (all ok), 200 with status=degraded
+                          (non-critical dep slow), or 503 (critical dep down).
+                          Intended for CI gates and admin diagnostics — not polling.
+
+GET /health             — 308 redirect to /api/v1/health (transition shim).
+GET /health/deep        — 308 redirect to /api/v1/health/deep (transition shim).
 """
+import os
 import time
 import uuid
 
-from flask import Blueprint, current_app, jsonify
+from flask import Blueprint, current_app, jsonify, redirect
 
-from app.health_checks import functional_checks, read_only_checks
+from app.health_checks import functional_checks
 
 health_bp = Blueprint("health", __name__)
 
 
-@health_bp.route("/health")
+@health_bp.route("/api/v1/health")
 def health():
-    """Read-only health check — safe for high-frequency monitoring."""
+    """Liveness — always 200 as long as the process is alive."""
     start_time = current_app.config.get("START_TIME", time.time())
-    uptime = round(time.time() - start_time, 1)
+    uptime = int(time.time() - start_time)
 
-    checks = read_only_checks()
-    status = "ok" if checks["ok"] else "degraded"
-
-    current_app.logger.info(
-        "health_check",
-        extra={"type": "live", "status": status, "uptime_seconds": uptime},
-    )
-
-    return jsonify(
-        {
-            "status": status,
-            "service": "conductor-companion",
-            "version": current_app.config.get("SERVICE_VERSION", "1.0.0"),
-            "uptime_seconds": uptime,
-            "checks": checks["checks"],
-        }
-    ), (200 if checks["ok"] else 503)
+    return jsonify({
+        "status": "ok",
+        "service": "conductor-companion",
+        "version": current_app.config.get("SERVICE_VERSION", "1.0.0"),
+        "uptime_seconds": uptime,
+    }), 200
 
 
-@health_bp.route("/health/deep")
+@health_bp.route("/api/v1/health/deep")
 def health_deep():
-    """Functional health check — DB + Conductor API. CI gates and admin use only."""
+    """Readiness — DB + Conductor probes. CI gates and admin use only."""
     start_time = current_app.config.get("START_TIME", time.time())
-    uptime = round(time.time() - start_time, 1)
+    uptime = int(time.time() - start_time)
     request_id = str(uuid.uuid4())
 
+    is_mock = not bool(os.environ.get("CONDUCTOR_URL", "").strip())
     checks = functional_checks()
     status = "ok" if checks["ok"] else "degraded"
 
-    # One audit emission per request — never one per fan-out item.
     current_app.logger.info(
         "health_check_deep",
         extra={
             "type": "functional",
             "request_id": request_id,
             "status": status,
+            "mock": is_mock,
             "checks": {k: v["ok"] for k, v in checks["checks"].items()},
         },
     )
 
-    return jsonify(
-        {
-            "status": status,
-            "service": "conductor-companion",
-            "version": current_app.config.get("SERVICE_VERSION", "1.0.0"),
-            "uptime_seconds": uptime,
-            "request_id": request_id,
-            "checks": checks["checks"],
-        }
-    ), (200 if checks["ok"] else 503)
+    return jsonify({
+        "status": status,
+        "service": "conductor-companion",
+        "version": current_app.config.get("SERVICE_VERSION", "1.0.0"),
+        "uptime_seconds": uptime,
+        "mock": is_mock,
+        "request_id": request_id,
+        "checks": checks["checks"],
+    }), (200 if checks["ok"] else 503)
+
+
+# ---------------------------------------------------------------------------
+# Transition shims — 308 redirects from bare /health paths (deprecated)
+# ---------------------------------------------------------------------------
+
+@health_bp.route("/health")
+def health_redirect():
+    return redirect("/api/v1/health", code=308)
+
+
+@health_bp.route("/health/deep")
+def health_deep_redirect():
+    return redirect("/api/v1/health/deep", code=308)

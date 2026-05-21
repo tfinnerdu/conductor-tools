@@ -1,16 +1,12 @@
 """Secrets routes — /api/v1/secrets/*"""
 import json
-import uuid
 
 from flask import Blueprint, current_app, jsonify, request
 
 from app.conductor_client import ConductorClient
+from app.utils.responses import error_response
 
 secrets_bp = Blueprint("secrets", __name__, url_prefix="/api/v1/secrets")
-
-
-def _error(message: str, code: str, status: int = 400):
-    return jsonify({"error": message, "code": code, "request_id": str(uuid.uuid4())}), status
 
 
 # Pattern used in Conductor workflow definitions for secret references
@@ -26,7 +22,7 @@ def list_secrets():
         return jsonify({"secrets": names, "count": len(names)})
     except Exception as exc:
         current_app.logger.error("list_secrets error: %s", exc, exc_info=True)
-        return _error(str(exc), "SECRETS_ERROR", 500)
+        return error_response(str(exc), "SECRETS_ERROR", 500)
 
 
 @secrets_bp.route("/<name>", methods=["POST"])
@@ -36,14 +32,14 @@ def set_secret(name: str):
         body = request.get_json(force=True) or {}
         value = body.get("value")
         if value is None:
-            return _error("value is required in request body", "VALIDATION_ERROR")
+            return error_response("value is required in request body", "VALIDATION_ERROR")
 
         client = ConductorClient()
         client.set_secret(name, str(value))
         return jsonify({"name": name, "updated": True})
     except Exception as exc:
         current_app.logger.error("set_secret error: %s", exc, exc_info=True)
-        return _error(str(exc), "SET_SECRET_ERROR", 500)
+        return error_response(str(exc), "SET_SECRET_ERROR", 500)
 
 
 @secrets_bp.route("/<name>", methods=["DELETE"])
@@ -55,7 +51,7 @@ def delete_secret(name: str):
         return jsonify({"name": name, "deleted": True})
     except Exception as exc:
         current_app.logger.error("delete_secret error: %s", exc, exc_info=True)
-        return _error(str(exc), "DELETE_SECRET_ERROR", 500)
+        return error_response(str(exc), "DELETE_SECRET_ERROR", 500)
 
 
 @secrets_bp.route("/<name>/usages", methods=["GET"])
@@ -110,4 +106,4 @@ def secret_usages(name: str):
         })
     except Exception as exc:
         current_app.logger.error("secret_usages error: %s", exc, exc_info=True)
-        return _error(str(exc), "USAGES_ERROR", 500)
+        return error_response(str(exc), "USAGES_ERROR", 500)
