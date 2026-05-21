@@ -247,7 +247,6 @@ class TestSfProviderRealPaths:
         with patch("app.sf_provider.requests.get", side_effect=Exception("network error")):
             with patch("app.sf_provider._get_access_token", return_value="bearer-token"):
                 result = sf_provider.find_person_by_sis_id("STU001")
-                # Falls back to mock
                 assert isinstance(result, dict)
                 assert "records" in result
 
