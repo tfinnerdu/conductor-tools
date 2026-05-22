@@ -35,7 +35,7 @@ tags:
   - name: tracer
     description: End-to-end correlation tracer
   - name: test-harness
-    description: Workflow test harness (mock execution)
+    description: Workflow test harness (Conductor test endpoint)
   - name: digest
     description: Daily performance digest
   - name: ethos
@@ -338,7 +338,7 @@ components:
   schemas:
     DeepHealthResponse:
       type: object
-      required: [status, service, version, uptime_seconds, mock, checks]
+      required: [status, service, version, uptime_seconds, checks]
       properties:
         status:
           type: string
@@ -349,9 +349,6 @@ components:
           type: string
         uptime_seconds:
           type: integer
-        mock:
-          type: boolean
-          description: True when Conductor is running in mock mode (CONDUCTOR_URL unset)
         request_id:
           type: string
           format: uuid

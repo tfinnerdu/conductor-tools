@@ -5,14 +5,14 @@ Pins:
   - Required response keys for each endpoint
   - status value for liveness is exactly "ok" (never "healthy", never "up")
   - /api/v1/health always returns HTTP 200 (liveness invariant)
-  - /api/v1/health/deep includes "mock" key and "checks" dict
+  - /api/v1/health/deep includes a "checks" dict
   - /api/v1/health/deep returns 503 when checks["ok"] is False
 
 If any of these assertions fail due to an intentional change, update the
 hardcoded values AND update this comment to record when and why.
-Last verified: 2026-05-21 (console audit v2).
+Last verified: 2026-05-22 — removed the "mock" key contract; the app no
+longer has a mock mode (all fixture/mock data was removed).
 """
-import os
 from unittest.mock import patch
 
 import pytest
@@ -27,7 +27,7 @@ KNOWN_READINESS_PATH = "/api/v1/health/deep"
 KNOWN_LIVENESS_STATUS_STRING = "ok"
 KNOWN_SERVICE_NAME = "conductor-companion"
 KNOWN_LIVENESS_REQUIRED_KEYS = {"status", "service", "version", "uptime_seconds"}
-KNOWN_READINESS_REQUIRED_KEYS = {"status", "service", "version", "uptime_seconds", "mock", "checks"}
+KNOWN_READINESS_REQUIRED_KEYS = {"status", "service", "version", "uptime_seconds", "checks"}
 
 
 class TestLivenessPathCharacterization:
@@ -127,22 +127,20 @@ class TestReadinessPathCharacterization:
     def test_readiness_required_keys_characterization(self, client):
         """
         CONTRACT: readiness body must include: status, service, version,
-        uptime_seconds, mock, checks. The 'mock' key is the canonical
-        mock/live signal required by the Mock/Live Signal standard.
-        The 'checks' dict enables per-dependency monitoring.
+        uptime_seconds, checks. The 'checks' dict enables per-dependency
+        monitoring.
         """
         with patch("app.routes.health.functional_checks", return_value={
             "ok": True,
             "checks": {"db": {"ok": True, "latency_ms": 1, "detail": "connected"},
-                       "conductor": {"ok": True, "latency_ms": None, "detail": "mock_mode"}},
+                       "conductor": {"ok": True, "latency_ms": 8, "detail": "reachable"}},
         }):
             resp = client.get(KNOWN_READINESS_PATH)
         data = resp.get_json()
         missing = KNOWN_READINESS_REQUIRED_KEYS - set(data.keys())
         assert not missing, (
             f"Readiness response is missing required keys: {missing}. "
-            f"Known-good required keys: {KNOWN_READINESS_REQUIRED_KEYS}. "
-            "The 'mock' key in particular is required for the Mock/Live Signal standard."
+            f"Known-good required keys: {KNOWN_READINESS_REQUIRED_KEYS}."
         )
 
     def test_readiness_503_when_critical_dep_down_characterization(self, client):
@@ -163,26 +161,23 @@ class TestReadinessPathCharacterization:
             f"Got {resp.status_code}. CI gates depend on this status code."
         )
 
-    def test_mock_key_reflects_conductor_url_characterization(self, client):
+    def test_readiness_has_no_mock_key_characterization(self, client):
         """
-        CONTRACT: mock=True when CONDUCTOR_URL is empty/unset (mock mode).
-        mock=False when CONDUCTOR_URL is set (live mode).
-        This is the health-endpoint signal of the Mock/Live Signal standard.
-        If this flips silently, operators can't tell if they're looking at
-        real data or fixture data.
+        CONTRACT: readiness must NOT include a "mock" key. The app has no mock
+        mode — all fixture/mock data was removed. A reappearing "mock" key
+        would mean a silent-fallback path has been reintroduced.
         """
-        with patch.dict(os.environ, {"CONDUCTOR_URL": ""}):
-            with patch("app.routes.health.functional_checks", return_value={
-                "ok": True,
-                "checks": {"db": {"ok": True, "latency_ms": 1, "detail": "connected"},
-                           "conductor": {"ok": True, "latency_ms": None, "detail": "mock_mode"}},
-            }):
-                resp = client.get(KNOWN_READINESS_PATH)
+        with patch("app.routes.health.functional_checks", return_value={
+            "ok": True,
+            "checks": {"db": {"ok": True, "latency_ms": 1, "detail": "connected"},
+                       "conductor": {"ok": True, "latency_ms": 8, "detail": "reachable"}},
+        }):
+            resp = client.get(KNOWN_READINESS_PATH)
         data = resp.get_json()
-        assert data.get("mock") is True, (
-            f"mock must be True when CONDUCTOR_URL is empty. "
-            f"Got mock={data.get('mock')}. "
-            "This is the Mock/Live Signal standard health-endpoint signal."
+        assert "mock" not in data, (
+            "Readiness response must not include a 'mock' key — the app has no "
+            "mock mode. A 'mock' key reappearing means silent fixture fallback "
+            "was reintroduced."
         )
 
 

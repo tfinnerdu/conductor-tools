@@ -5,7 +5,6 @@ identified by pytest-cov. Every test here exists because a real branch
 was unreachable from existing tests, not to pad numbers.
 """
 import json
-import os
 import time
 from unittest.mock import MagicMock, patch
 
@@ -77,109 +76,38 @@ class TestHealthChecksGaps:
 # =============================================================================
 
 class TestConductorClientMockPaths:
-    """Drive mock-mode paths (lines 54, 86, etc.) by calling client directly."""
+    """Cover the pure query-building helper and the unconfigured-client behavior.
 
-    def _mock_client(self):
-        os.environ.pop("CONDUCTOR_URL", None)
+    The fabricated mock-data fallback has been removed from production: with no
+    CONDUCTOR_URL set, base_url is "" and every HTTP call raises a requests
+    exception instead of returning fixture data. The per-method real-path
+    success tests live in TestConductorClientLivePaths (so the old duplicate
+    mock-mode tests were dropped); what remains here is the standalone
+    _build_query coverage plus a guard that an unconfigured client really does
+    propagate the failure rather than fabricating data.
+    """
+
+    def _client(self):
         from app.conductor_client import ConductorClient
         return ConductorClient()
 
-    def test_search_mock_mode(self):
-        c = self._mock_client()
-        result = c.search(workflow_type="EDA_Person_Sync", status="FAILED")
-        assert "results" in result
-        assert "totalHits" in result
-
-    def test_search_mock_with_free_text(self):
-        c = self._mock_client()
-        result = c.search(free_text="STU12345", size=5)
-        assert len(result["results"]) <= 5
-
-    def test_get_execution_mock_mode(self):
-        c = self._mock_client()
-        result = c.get_execution("mock-id-001")
-        assert result["workflowId"] == "mock-id-001"
-        assert "tasks" in result
-
-    def test_retry_workflow_mock_mode_returns_none(self):
-        c = self._mock_client()
-        assert c.retry_workflow("mock-wf") is None
-
-    def test_get_workflow_definition_mock_mode(self):
-        c = self._mock_client()
-        result = c.get_workflow_definition("EDA_Person_Sync", version=2)
-        assert result["name"] == "EDA_Person_Sync"
-        assert result["version"] == 2
-
-    def test_get_workflow_definition_no_version(self):
-        c = self._mock_client()
-        result = c.get_workflow_definition("some_workflow")
-        assert "tasks" in result
-
-    def test_list_workflow_definitions_mock_mode(self):
-        c = self._mock_client()
-        result = c.list_workflow_definitions()
-        assert isinstance(result, list)
-        assert len(result) > 0
-
-    def test_get_task_definition_mock_mode(self):
-        c = self._mock_client()
-        result = c.get_task_definition("ethos_get_by_id")
-        assert result["name"] == "ethos_get_by_id"
-
-    def test_get_task_queue_info_mock_mode(self):
-        c = self._mock_client()
-        result = c.get_task_queue_info("validate_order")
-        assert "queueSize" in result
-
-    def test_get_all_task_queues_mock_mode(self):
-        c = self._mock_client()
-        result = c.get_all_task_queues()
-        assert isinstance(result, dict)
-        assert len(result) > 0
-
-    def test_get_worker_last_poll_mock_mode(self):
-        c = self._mock_client()
-        result = c.get_worker_last_poll("validate_order")
-        assert isinstance(result, list)
-        assert len(result) > 0
-        assert "workerId" in result[0]
-
-    def test_get_task_performance_mock_mode(self):
-        c = self._mock_client()
-        result = c.get_task_performance("validate_order")
-        assert "avgDurationMs" in result
-        assert "successRate" in result
-
-    def test_list_secrets_mock_mode(self):
-        c = self._mock_client()
-        result = c.list_secrets()
-        assert isinstance(result, list)
-        assert len(result) > 0
-
-    def test_set_secret_mock_mode_returns_none(self):
-        c = self._mock_client()
-        assert c.set_secret("MY_KEY", "value") is None
-
-    def test_delete_secret_mock_mode_returns_none(self):
-        c = self._mock_client()
-        assert c.delete_secret("MY_KEY") is None
-
-    def test_get_failures_by_task_type_mock_mode(self):
-        c = self._mock_client()
-        result = c.get_failures_by_task_type("EDA_Person_Sync", hours_back=24)
-        assert "groups" in result
-        assert "total_failures" in result
+    def test_unconfigured_client_raises_instead_of_mocking(self, monkeypatch):
+        """No CONDUCTOR_URL → base_url is "" → HTTP call raises (no mock fallback)."""
+        monkeypatch.delenv("CONDUCTOR_URL", raising=False)
+        c = self._client()
+        assert c.base_url == ""
+        with pytest.raises(Exception):
+            c.search(workflow_type="EDA_Person_Sync", status="FAILED")
 
     def test_build_query_all_parts(self):
-        c = self._mock_client()
+        c = self._client()
         q = c._build_query("correlationId=abc", "FAILED", "EDA_Person_Sync")
         assert "FAILED" in q
         assert "EDA_Person_Sync" in q
         assert "correlationId=abc" in q
 
     def test_build_query_empty(self):
-        c = self._mock_client()
+        c = self._client()
         assert c._build_query("", "", "") == ""
 
 
@@ -205,11 +133,12 @@ class TestConductorClientLivePaths:
             result = c.search(workflow_type="EDA", status="FAILED")
         assert result["totalHits"] == 1
 
-    def test_search_live_exception_falls_back(self, monkeypatch):
+    def test_search_live_exception_propagates(self, monkeypatch):
+        """A failed live call propagates — there is no mock fallback."""
         c = self._live_client(monkeypatch)
         with patch("app.conductor_client.requests.get", side_effect=ConnectionError()):
-            result = c.search()
-        assert "results" in result  # mock fallback
+            with pytest.raises(ConnectionError):
+                c.search()
 
     def test_search_includes_free_text_param(self, monkeypatch):
         c = self._live_client(monkeypatch)
@@ -226,11 +155,12 @@ class TestConductorClientLivePaths:
             result = c.get_execution("abc")
         assert result["workflowId"] == "abc"
 
-    def test_get_execution_live_exception_falls_back(self, monkeypatch):
+    def test_get_execution_live_exception_propagates(self, monkeypatch):
+        """A failed live call propagates — there is no mock fallback."""
         c = self._live_client(monkeypatch)
         with patch("app.conductor_client.requests.get", side_effect=RuntimeError()):
-            result = c.get_execution("abc")
-        assert "workflowId" in result
+            with pytest.raises(RuntimeError):
+                c.get_execution("abc")
 
     def test_get_execution_include_tasks_false(self, monkeypatch):
         c = self._live_client(monkeypatch)
@@ -254,11 +184,12 @@ class TestConductorClientLivePaths:
             assert mock_get.call_args[1]["params"]["version"] == 3
         assert result["version"] == 3
 
-    def test_get_workflow_definition_live_exception_falls_back(self, monkeypatch):
+    def test_get_workflow_definition_live_exception_propagates(self, monkeypatch):
+        """A failed live call propagates — there is no mock fallback."""
         c = self._live_client(monkeypatch)
         with patch("app.conductor_client.requests.get", side_effect=RuntimeError()):
-            result = c.get_workflow_definition("EDA")
-        assert "tasks" in result
+            with pytest.raises(RuntimeError):
+                c.get_workflow_definition("EDA")
 
     def test_list_workflow_definitions_live_success(self, monkeypatch):
         c = self._live_client(monkeypatch)
@@ -267,11 +198,12 @@ class TestConductorClientLivePaths:
             result = c.list_workflow_definitions()
         assert result[0]["name"] == "wf1"
 
-    def test_list_workflow_definitions_live_exception_falls_back(self, monkeypatch):
+    def test_list_workflow_definitions_live_exception_propagates(self, monkeypatch):
+        """A failed live call propagates — there is no mock fallback."""
         c = self._live_client(monkeypatch)
         with patch("app.conductor_client.requests.get", side_effect=RuntimeError()):
-            result = c.list_workflow_definitions()
-        assert isinstance(result, list)
+            with pytest.raises(RuntimeError):
+                c.list_workflow_definitions()
 
     def test_get_task_definition_live_success(self, monkeypatch):
         c = self._live_client(monkeypatch)
@@ -280,11 +212,12 @@ class TestConductorClientLivePaths:
             result = c.get_task_definition("my_task")
         assert result["name"] == "my_task"
 
-    def test_get_task_definition_live_exception_falls_back(self, monkeypatch):
+    def test_get_task_definition_live_exception_propagates(self, monkeypatch):
+        """A failed live call propagates — there is no mock fallback."""
         c = self._live_client(monkeypatch)
         with patch("app.conductor_client.requests.get", side_effect=RuntimeError()):
-            result = c.get_task_definition("my_task")
-        assert "name" in result
+            with pytest.raises(RuntimeError):
+                c.get_task_definition("my_task")
 
     def test_get_task_queue_info_live_success(self, monkeypatch):
         c = self._live_client(monkeypatch)
@@ -293,11 +226,12 @@ class TestConductorClientLivePaths:
             result = c.get_task_queue_info("my_task")
         assert result["queueSize"] == 5
 
-    def test_get_task_queue_info_live_exception_falls_back(self, monkeypatch):
+    def test_get_task_queue_info_live_exception_propagates(self, monkeypatch):
+        """A failed live call propagates — there is no mock fallback."""
         c = self._live_client(monkeypatch)
         with patch("app.conductor_client.requests.get", side_effect=RuntimeError()):
-            result = c.get_task_queue_info("my_task")
-        assert "queueSize" in result
+            with pytest.raises(RuntimeError):
+                c.get_task_queue_info("my_task")
 
     def test_get_all_task_queues_live_success(self, monkeypatch):
         c = self._live_client(monkeypatch)
@@ -307,11 +241,12 @@ class TestConductorClientLivePaths:
             result = c.get_all_task_queues()
         assert "task_a" in result
 
-    def test_get_all_task_queues_live_exception_falls_back(self, monkeypatch):
+    def test_get_all_task_queues_live_exception_propagates(self, monkeypatch):
+        """A failed live call propagates — there is no mock fallback."""
         c = self._live_client(monkeypatch)
         with patch("app.conductor_client.requests.get", side_effect=RuntimeError()):
-            result = c.get_all_task_queues()
-        assert isinstance(result, dict)
+            with pytest.raises(RuntimeError):
+                c.get_all_task_queues()
 
     def test_get_worker_last_poll_live_success(self, monkeypatch):
         c = self._live_client(monkeypatch)
@@ -321,11 +256,12 @@ class TestConductorClientLivePaths:
             result = c.get_worker_last_poll("t")
         assert result[0]["workerId"] == "w1"
 
-    def test_get_worker_last_poll_live_exception_falls_back(self, monkeypatch):
+    def test_get_worker_last_poll_live_exception_propagates(self, monkeypatch):
+        """A failed live call propagates — there is no mock fallback."""
         c = self._live_client(monkeypatch)
         with patch("app.conductor_client.requests.get", side_effect=RuntimeError()):
-            result = c.get_worker_last_poll("t")
-        assert isinstance(result, list)
+            with pytest.raises(RuntimeError):
+                c.get_worker_last_poll("t")
 
     def test_get_task_performance_live_success(self, monkeypatch):
         c = self._live_client(monkeypatch)
@@ -342,11 +278,12 @@ class TestConductorClientLivePaths:
         assert result["totalExecutions"] == 2
         assert result["failedCount"] == 1
 
-    def test_get_task_performance_live_exception_falls_back(self, monkeypatch):
+    def test_get_task_performance_live_exception_propagates(self, monkeypatch):
+        """A failed live call propagates — there is no mock fallback."""
         c = self._live_client(monkeypatch)
         with patch("app.conductor_client.requests.get", side_effect=RuntimeError()):
-            result = c.get_task_performance("my_task")
-        assert "avgDurationMs" in result
+            with pytest.raises(RuntimeError):
+                c.get_task_performance("my_task")
 
     def test_list_secrets_live_success(self, monkeypatch):
         c = self._live_client(monkeypatch)
@@ -355,11 +292,12 @@ class TestConductorClientLivePaths:
             result = c.list_secrets()
         assert "SECRET_A" in result
 
-    def test_list_secrets_live_exception_falls_back(self, monkeypatch):
+    def test_list_secrets_live_exception_propagates(self, monkeypatch):
+        """A failed live call propagates — there is no mock fallback."""
         c = self._live_client(monkeypatch)
         with patch("app.conductor_client.requests.get", side_effect=RuntimeError()):
-            result = c.list_secrets()
-        assert isinstance(result, list)
+            with pytest.raises(RuntimeError):
+                c.list_secrets()
 
     def test_set_secret_live(self, monkeypatch):
         c = self._live_client(monkeypatch)
@@ -384,11 +322,12 @@ class TestConductorClientLivePaths:
             result = c.get_failures_by_task_type("EDA_Person_Sync")
         assert "groups" in result
 
-    def test_get_failures_by_task_type_live_exception_falls_back(self, monkeypatch):
+    def test_get_failures_by_task_type_live_exception_propagates(self, monkeypatch):
+        """A failed live call propagates — there is no mock fallback."""
         c = self._live_client(monkeypatch)
         with patch("app.conductor_client.requests.get", side_effect=RuntimeError()):
-            result = c.get_failures_by_task_type("EDA_Person_Sync")
-        assert "groups" in result
+            with pytest.raises(RuntimeError):
+                c.get_failures_by_task_type("EDA_Person_Sync")
 
     def test_compute_performance_no_durations(self, monkeypatch):
         """_compute_performance with all-failed executions (no valid durations)."""
@@ -993,7 +932,7 @@ class TestHarnessGaps:
         assert resp.status_code == 500
 
     def test_run_test_live_mode(self, monkeypatch, client):
-        """Lines 312-337: live POST to /api/workflow/test when CONDUCTOR_URL set."""
+        """run_test always POSTs to {base_url}/api/workflow/test and returns the result."""
         monkeypatch.setenv("CONDUCTOR_URL", "http://conductor.test")
 
         mock_resp = MagicMock()
@@ -1003,10 +942,10 @@ class TestHarnessGaps:
         }
 
         with patch("app.routes.test_harness.ConductorClient") as MockClient:
-            MockClient.return_value._mock_mode = False
             MockClient.return_value.base_url = "http://conductor.test"
             MockClient.return_value.get_headers.return_value = {}
-            with patch("requests.post", return_value=mock_resp):
+            with patch("app.routes.test_harness.requests.post",
+                       return_value=mock_resp) as mock_post:
                 resp = client.post("/api/v1/test-harness/run", json={
                     "workflow_name": "EDA_Person_Sync",
                     "version": 1,
@@ -1014,15 +953,21 @@ class TestHarnessGaps:
                     "task_mocks": {}
                 })
         assert resp.status_code == 200
+        # POST goes to the Conductor workflow test endpoint.
+        assert mock_post.call_args[0][0] == "http://conductor.test/api/workflow/test"
+        assert resp.get_json()["workflowId"] == "live-test-id"
 
     def test_run_test_error(self, client_with_mock_conductor):
-        """Lines 334-337: run raises."""
+        """run_test returns 500 when the POST to Conductor fails."""
         with patch("app.routes.test_harness.ConductorClient") as MockClient:
-            MockClient.return_value.get_workflow_definition.side_effect = RuntimeError("down")
-            resp = client_with_mock_conductor.post("/api/v1/test-harness/run", json={
-                "workflow_name": "EDA_Person_Sync", "version": 1,
-                "input": {}, "task_mocks": {}
-            })
+            MockClient.return_value.base_url = "http://conductor.test"
+            MockClient.return_value.get_headers.return_value = {}
+            with patch("app.routes.test_harness.requests.post",
+                       side_effect=RuntimeError("conductor down")):
+                resp = client_with_mock_conductor.post("/api/v1/test-harness/run", json={
+                    "workflow_name": "EDA_Person_Sync", "version": 1,
+                    "input": {}, "task_mocks": {}
+                })
         assert resp.status_code == 500
 
     def test_get_presets_error(self, client_with_mock_conductor):
@@ -1042,27 +987,38 @@ class TestHarnessGaps:
             })
         assert resp.status_code == 500
 
-    def test_simulate_execution_with_output_params(self, client_with_mock_conductor):
-        """Lines 188-191: outputParameters triggers workflow output assembly."""
+    def test_run_test_passes_task_mocks_to_conductor(self, monkeypatch, client):
+        """run_test forwards task_mocks to Conductor as taskRefToMockOutput in the payload.
+
+        Replaces the old in-process simulator test: the _simulate_execution
+        fallback was deleted, so caller-supplied task mocks are now handed
+        straight to Conductor's workflow test endpoint.
+        """
+        monkeypatch.setenv("CONDUCTOR_URL", "http://conductor.test")
+
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status.return_value = None
+        mock_resp.json.return_value = {
+            "workflowId": "wf-mocked", "status": "COMPLETED",
+            "output": {"personId": "STU123"}, "tasks": [],
+        }
+
+        task_mocks = {"fetch_ref": {"outputData": {"personId": "STU123"}}}
         with patch("app.routes.test_harness.ConductorClient") as MockClient:
-            MockClient.return_value._mock_mode = True
-            MockClient.return_value.get_workflow_definition.return_value = {
-                "name": "EDA_Person_Sync",
-                "tasks": [
-                    {"name": "fetch_person", "taskReferenceName": "fetch_ref",
-                     "type": "SIMPLE"}
-                ],
-                "outputParameters": {"personId": "${fetch_ref.personId}"},
-            }
-            resp = client_with_mock_conductor.post("/api/v1/test-harness/run", json={
-                "workflow_name": "EDA_Person_Sync",
-                "version": 1,
-                "input": {},
-                "task_mocks": {"fetch_ref": {"outputData": {"personId": "STU123"}}}
-            })
+            MockClient.return_value.base_url = "http://conductor.test"
+            MockClient.return_value.get_headers.return_value = {}
+            with patch("app.routes.test_harness.requests.post",
+                       return_value=mock_resp) as mock_post:
+                resp = client.post("/api/v1/test-harness/run", json={
+                    "workflow_name": "EDA_Person_Sync",
+                    "version": 1,
+                    "input": {},
+                    "task_mocks": task_mocks,
+                })
         assert resp.status_code == 200
-        data = resp.get_json()
-        assert "fetch_ref.personId" in data.get("output", {})
+        sent_payload = mock_post.call_args[1]["json"]
+        assert sent_payload["taskRefToMockOutput"] == task_mocks
+        assert resp.get_json()["output"]["personId"] == "STU123"
 
 
 # =============================================================================
@@ -1110,7 +1066,11 @@ class TestConductorClientGroupFailures:
 
 
 class TestConductorClientExceptionHandlers:
-    """Cover exception-handler fallbacks in get_task_performance and get_failures_by_task_type."""
+    """Verify get_task_performance / get_failures_by_task_type propagate search errors.
+
+    Both methods delegate to self.search(); since the mock fallback was removed,
+    a search failure must surface to the caller rather than being masked.
+    """
 
     def _live_client(self, monkeypatch):
         monkeypatch.setenv("CONDUCTOR_URL", "http://conductor.test")
@@ -1119,18 +1079,18 @@ class TestConductorClientExceptionHandlers:
         return ConductorClient()
 
     def test_get_task_performance_search_raises(self, monkeypatch):
-        """Lines 235-236: search raises → falls back to mock."""
+        """search raises → get_task_performance propagates the exception."""
         c = self._live_client(monkeypatch)
         with patch.object(c, "search", side_effect=RuntimeError("search error")):
-            result = c.get_task_performance("my_task")
-        assert "avgDurationMs" in result
+            with pytest.raises(RuntimeError):
+                c.get_task_performance("my_task")
 
     def test_get_failures_by_task_type_search_raises(self, monkeypatch):
-        """Lines 263-264: search raises → falls back to mock."""
+        """search raises → get_failures_by_task_type propagates the exception."""
         c = self._live_client(monkeypatch)
         with patch.object(c, "search", side_effect=RuntimeError("search error")):
-            result = c.get_failures_by_task_type("EDA_Person_Sync")
-        assert "groups" in result
+            with pytest.raises(RuntimeError):
+                c.get_failures_by_task_type("EDA_Person_Sync")
 
 
 class TestBatchesPagination:

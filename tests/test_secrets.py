@@ -2,8 +2,8 @@
 import pytest
 
 
-def test_list_secrets_returns_names(client):
-    resp = client.get('/api/v1/secrets')
+def test_list_secrets_returns_names(client_with_mock_conductor):
+    resp = client_with_mock_conductor.get('/api/v1/secrets')
     assert resp.status_code == 200
     data = resp.get_json()
     assert 'secrets' in data
@@ -17,23 +17,23 @@ def test_set_secret_requires_value(client):
     assert resp.get_json()['code'] == 'VALIDATION_ERROR'
 
 
-def test_set_secret_succeeds(client):
-    resp = client.post('/api/v1/secrets/MY_SECRET', json={'value': 'abc123'})
+def test_set_secret_succeeds(client_with_mock_conductor):
+    resp = client_with_mock_conductor.post('/api/v1/secrets/MY_SECRET', json={'value': 'abc123'})
     assert resp.status_code == 200
     data = resp.get_json()
     assert data['updated'] is True
     assert data['name'] == 'MY_SECRET'
 
 
-def test_delete_secret_succeeds(client):
-    resp = client.delete('/api/v1/secrets/MY_SECRET')
+def test_delete_secret_succeeds(client_with_mock_conductor):
+    resp = client_with_mock_conductor.delete('/api/v1/secrets/MY_SECRET')
     assert resp.status_code == 200
     data = resp.get_json()
     assert data['deleted'] is True
 
 
-def test_secret_usages_returns_list(client):
-    resp = client.get('/api/v1/secrets/MY_SECRET/usages')
+def test_secret_usages_returns_list(client_with_mock_conductor):
+    resp = client_with_mock_conductor.get('/api/v1/secrets/MY_SECRET/usages')
     assert resp.status_code == 200
     data = resp.get_json()
     assert 'usages' in data

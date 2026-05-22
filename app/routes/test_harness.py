@@ -1,12 +1,10 @@
 """Test Harness routes — /api/v1/test-harness/*
 
-Workflow Test Harness: run workflow definitions against mock task outputs
-without a live Conductor environment.  When _mock_mode is active, execution
-is simulated in-process by walking the workflow task list and applying the
-caller-supplied task_mocks.
+Workflow Test Harness: run workflow definitions against Conductor's workflow
+test endpoint with caller-supplied task mock outputs. Requires a live
+Conductor — there is no in-process simulation fallback.
 """
-import uuid
-from datetime import datetime, timezone
+import requests
 
 from flask import Blueprint, current_app, jsonify, request
 
@@ -124,86 +122,6 @@ _BUILTIN_PRESETS = [
 
 
 # ---------------------------------------------------------------------------
-# Simulation helper
-# ---------------------------------------------------------------------------
-
-def _simulate_execution(workflow_def: dict, workflow_input: dict, task_mocks: dict) -> dict:
-    """Walk the workflow task list and apply mocks to produce a synthetic result."""
-    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
-    synthetic_id = "mock-test-" + str(uuid.uuid4())[:8]
-    tasks_result = []
-    workflow_output = {}
-    status = "COMPLETED"
-
-    tasks = workflow_def.get("tasks", [])
-    elapsed = 0
-
-    for task in tasks:
-        ref_name = task.get("taskReferenceName", task.get("name", "unknown_ref"))
-        task_type = task.get("name", "unknown")
-        task_start = now_ms + elapsed
-        task_duration = 150 + (hash(ref_name) % 500)  # deterministic fake duration
-        task_end = task_start + task_duration
-        elapsed += task_duration + 50  # small gap between tasks
-
-        mock_data = task_mocks.get(ref_name, {})
-        output_data = mock_data.get("outputData", {})
-
-        # If the mock output contains an error key at top level, mark as FAILED
-        task_status = "COMPLETED"
-        reason = None
-        if "error" in output_data and isinstance(output_data.get("error"), str):
-            error_val = output_data["error"]
-            if any(x in error_val.upper() for x in ("ERROR", "404", "500", "FAIL")):
-                task_status = "FAILED"
-                reason = output_data.get("message", error_val)
-                status = "FAILED"
-
-        tasks_result.append(
-            {
-                "taskId": f"{synthetic_id}-{ref_name}",
-                "taskType": task_type,
-                "referenceTaskName": ref_name,
-                "status": task_status,
-                "startTime": task_start,
-                "endTime": task_end,
-                "outputData": output_data,
-                "inputData": task.get("inputParameters", {}),
-                "retryCount": 0,
-                "reasonForIncompletion": reason,
-                "workerId": "mock-worker-1",
-            }
-        )
-
-        if task_status == "FAILED":
-            break  # stop execution at first failed task
-
-    # Build workflow output from output parameters if defined
-    out_params = workflow_def.get("outputParameters", {})
-    for k in out_params:
-        # Try resolving ${ref.output.key} patterns against collected task outputs
-        ref_outputs = {t["referenceTaskName"]: t["outputData"] for t in tasks_result}
-        for t_ref, t_out in ref_outputs.items():
-            for out_key, out_val in t_out.items():
-                workflow_output[f"{t_ref}.{out_key}"] = out_val
-
-    end_time = now_ms + elapsed
-
-    return {
-        "workflowId": synthetic_id,
-        "workflowType": workflow_def.get("name", "unknown"),
-        "version": workflow_def.get("version", 1),
-        "status": status,
-        "startTime": now_ms,
-        "endTime": end_time,
-        "input": workflow_input,
-        "output": workflow_output,
-        "tasks": tasks_result,
-        "mock": True,
-    }
-
-
-# ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
 
@@ -294,27 +212,14 @@ def run_test():
     try:
         client = ConductorClient()
 
-        if client._mock_mode:
-            # Simulate execution using the workflow definition
-            defn = client.get_workflow_definition(workflow_name, version=version)
-            result = _simulate_execution(defn, workflow_input, task_mocks)
-            current_app.logger.info(
-                "test_harness run (mock): workflow=%s status=%s",
-                workflow_name,
-                result.get("status"),
-            )
-            return jsonify(result)
-
-        # Live mode: POST to /api/workflow/test
-        import requests as req
-
+        # POST to Conductor's workflow test endpoint.
         payload = {
             "name": workflow_name,
             "version": version,
             "input": workflow_input,
             "taskRefToMockOutput": task_mocks,
         }
-        resp = req.post(
+        resp = requests.post(
             f"{client.base_url}/api/workflow/test",
             headers=client.get_headers(),
             json=payload,
@@ -323,7 +228,7 @@ def run_test():
         resp.raise_for_status()
         result = resp.json()
         current_app.logger.info(
-            "test_harness run (live): workflow=%s status=%s",
+            "test_harness run: workflow=%s status=%s",
             workflow_name,
             result.get("status"),
         )

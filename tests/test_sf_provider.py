@@ -35,128 +35,39 @@ class TestConfigured:
 
 
 class TestFindPersonBySisId:
-    def test_mock_returns_records(self, monkeypatch):
+    def test_raises_when_not_configured(self, monkeypatch):
         for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN"):
             monkeypatch.delenv(k, raising=False)
         from app import sf_provider
-        result = sf_provider.find_person_by_sis_id("STU12345")
-        assert isinstance(result, dict)
-        assert "records" in result
-        assert "record_count" in result
-        assert "status" in result
-        assert "diagnosis" in result
-
-    def test_mock_healthy_record(self, monkeypatch):
-        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN"):
-            monkeypatch.delenv(k, raising=False)
-        from app import sf_provider
-        result = sf_provider.find_person_by_sis_id("STU12345")
-        assert result["status"] == "ok"
-        assert result["record_count"] == 1
-        assert "healthy" in result["diagnosis"].lower()
-
-    def test_mock_dup_returns_two_records(self, monkeypatch):
-        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN"):
-            monkeypatch.delenv(k, raising=False)
-        from app import sf_provider
-        result = sf_provider.find_person_by_sis_id("dup-student")
-        assert result["record_count"] == 2
-        assert result["status"] == "warning"
-        assert "DUPLICATE" in result["diagnosis"]
-
-    def test_mock_notfound_returns_zero(self, monkeypatch):
-        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN"):
-            monkeypatch.delenv(k, raising=False)
-        from app import sf_provider
-        result = sf_provider.find_person_by_sis_id("notfound-student")
-        assert result["record_count"] == 0
-        assert result["status"] == "error"
-
-    def test_mock_missing_sis_id_is_warning(self, monkeypatch):
-        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN"):
-            monkeypatch.delenv(k, raising=False)
-        from app import sf_provider
-        result = sf_provider.find_person_by_sis_id("missing-person")
-        assert result["status"] == "warning"
-        assert "missing" in result["diagnosis"].lower()
+        with pytest.raises(RuntimeError):
+            sf_provider.find_person_by_sis_id("STU12345")
 
 
 class TestFindPersonByGuid:
-    def test_mock_returns_records(self, monkeypatch):
+    def test_raises_when_not_configured(self, monkeypatch):
         for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN"):
             monkeypatch.delenv(k, raising=False)
         from app import sf_provider
-        result = sf_provider.find_person_by_guid("550e8400-e29b-41d4-a716-446655440000")
-        assert isinstance(result, dict)
-        assert "records" in result
-        assert result["record_count"] >= 1
-
-    def test_mock_notfound_returns_empty(self, monkeypatch):
-        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN"):
-            monkeypatch.delenv(k, raising=False)
-        from app import sf_provider
-        result = sf_provider.find_person_by_guid("notfound-guid-12345")
-        assert result["record_count"] == 0
-        assert result["status"] == "error"
-
-    def test_mock_result_has_ethos_guid_field(self, monkeypatch):
-        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN"):
-            monkeypatch.delenv(k, raising=False)
-        from app import sf_provider
-        result = sf_provider.find_person_by_guid("test-guid-12345")
-        assert result["record_count"] == 1
-        record = result["records"][0]
-        assert "Ethos_Guid__c" in record
+        with pytest.raises(RuntimeError):
+            sf_provider.find_person_by_guid("550e8400-e29b-41d4-a716-446655440000")
 
 
 class TestFindDuplicateAccounts:
-    def test_mock_returns_list(self, monkeypatch):
+    def test_raises_when_not_configured(self, monkeypatch):
         for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN"):
             monkeypatch.delenv(k, raising=False)
         from app import sf_provider
-        result = sf_provider.find_duplicate_accounts("STU12345")
-        assert isinstance(result, list)
-
-    def test_mock_dup_returns_two(self, monkeypatch):
-        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN"):
-            monkeypatch.delenv(k, raising=False)
-        from app import sf_provider
-        result = sf_provider.find_duplicate_accounts("dup-student")
-        assert len(result) == 2
-
-    def test_mock_healthy_returns_one(self, monkeypatch):
-        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN"):
-            monkeypatch.delenv(k, raising=False)
-        from app import sf_provider
-        result = sf_provider.find_duplicate_accounts("STU00001")
-        assert len(result) == 1
-
-    def test_mock_notfound_returns_empty(self, monkeypatch):
-        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN"):
-            monkeypatch.delenv(k, raising=False)
-        from app import sf_provider
-        result = sf_provider.find_duplicate_accounts("notfound-x")
-        assert result == []
+        with pytest.raises(RuntimeError):
+            sf_provider.find_duplicate_accounts("STU12345")
 
 
 class TestGetAccount:
-    def test_mock_returns_dict(self, monkeypatch):
+    def test_raises_when_not_configured(self, monkeypatch):
         for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN"):
             monkeypatch.delenv(k, raising=False)
         from app import sf_provider
-        result = sf_provider.get_account("SF001AAA")
-        assert isinstance(result, dict)
-        assert result["Id"] == "SF001AAA"
-
-    def test_mock_has_required_fields(self, monkeypatch):
-        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN"):
-            monkeypatch.delenv(k, raising=False)
-        from app import sf_provider
-        result = sf_provider.get_account("SF001AAA")
-        assert "FirstName" in result
-        assert "LastName" in result
-        assert "SIS_ID__c" in result
-        assert "IsPersonAccount" in result
+        with pytest.raises(RuntimeError):
+            sf_provider.get_account("SF001AAA")
 
 
 class TestCheckHealth:
@@ -240,15 +151,14 @@ class TestSfProviderRealPaths:
                 assert result["record_count"] == 1
                 assert result["status"] == "ok"
 
-    def test_find_person_by_sis_id_live_failure_fallback(self, monkeypatch):
+    def test_find_person_by_sis_id_live_failure_propagates(self, monkeypatch):
         self._setup_live_env(monkeypatch)
         from app import sf_provider
 
         with patch("app.sf_provider.requests.get", side_effect=Exception("network error")):
             with patch("app.sf_provider._get_access_token", return_value="bearer-token"):
-                result = sf_provider.find_person_by_sis_id("STU001")
-                assert isinstance(result, dict)
-                assert "records" in result
+                with pytest.raises(Exception):
+                    sf_provider.find_person_by_sis_id("STU001")
 
     def test_find_person_by_guid_live_success(self, monkeypatch):
         self._setup_live_env(monkeypatch)
@@ -268,14 +178,14 @@ class TestSfProviderRealPaths:
                 result = sf_provider.find_person_by_guid(guid)
                 assert result["record_count"] == 1
 
-    def test_find_person_by_guid_live_failure_fallback(self, monkeypatch):
+    def test_find_person_by_guid_live_failure_propagates(self, monkeypatch):
         self._setup_live_env(monkeypatch)
         from app import sf_provider
 
         with patch("app.sf_provider.requests.get", side_effect=Exception("fail")):
             with patch("app.sf_provider._get_access_token", return_value="bearer-token"):
-                result = sf_provider.find_person_by_guid("some-guid")
-                assert isinstance(result, dict)
+                with pytest.raises(Exception):
+                    sf_provider.find_person_by_guid("some-guid")
 
     def test_find_duplicate_accounts_live_success(self, monkeypatch):
         self._setup_live_env(monkeypatch)
@@ -297,14 +207,14 @@ class TestSfProviderRealPaths:
                 records = sf_provider.find_duplicate_accounts("STU001")
                 assert len(records) == 2
 
-    def test_find_duplicate_accounts_live_failure_fallback(self, monkeypatch):
+    def test_find_duplicate_accounts_live_failure_propagates(self, monkeypatch):
         self._setup_live_env(monkeypatch)
         from app import sf_provider
 
         with patch("app.sf_provider.requests.get", side_effect=Exception("fail")):
             with patch("app.sf_provider._get_access_token", return_value="bearer-token"):
-                records = sf_provider.find_duplicate_accounts("STU001")
-                assert isinstance(records, list)
+                with pytest.raises(Exception):
+                    sf_provider.find_duplicate_accounts("STU001")
 
     def test_get_account_live_success(self, monkeypatch):
         self._setup_live_env(monkeypatch)
@@ -319,14 +229,14 @@ class TestSfProviderRealPaths:
                 result = sf_provider.get_account("SF001AAA")
                 assert result["Id"] == "SF001AAA"
 
-    def test_get_account_live_failure_fallback(self, monkeypatch):
+    def test_get_account_live_failure_propagates(self, monkeypatch):
         self._setup_live_env(monkeypatch)
         from app import sf_provider
 
         with patch("app.sf_provider.requests.get", side_effect=Exception("fail")):
             with patch("app.sf_provider._get_access_token", return_value="bearer-token"):
-                result = sf_provider.get_account("SF001AAA")
-                assert isinstance(result, dict)
+                with pytest.raises(Exception):
+                    sf_provider.get_account("SF001AAA")
 
     def test_get_access_token_via_oauth_flow(self, monkeypatch):
         """Username/password OAuth flow fetches and caches a token."""

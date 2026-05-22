@@ -10,20 +10,19 @@ Open your browser and navigate to `http://localhost:5007` (or the network URL pr
 
 The orange Doane top bar shows the app name and current version number. Below it, the navy navigation bar has nine tabs. Click any tab to switch to it. The app does not reload between tabs — everything runs in the same page.
 
-**Mock mode:** If `CONDUCTOR_URL` is not set, the app returns realistic demo data automatically. You can explore every feature without a live Conductor connection. See the next section for how the app tells you which mode you are in.
+**Connecting to Conductor:** Set `CONDUCTOR_URL` to your Conductor instance. The app has no demo or mock mode — every tab calls the real Conductor. See the next section.
 
 ---
 
-## Mock Mode and Live Mode
+## Production Safety
 
-Conductor Companion runs in one of two modes, decided by whether `CONDUCTOR_URL` points at a real Conductor instance.
+Conductor Companion always acts on the real Conductor that `CONDUCTOR_URL` points at. There is no demo or mock mode: if Conductor is unreachable, a tab shows an error rather than fabricated data.
 
-- **Mock mode** — `CONDUCTOR_URL` is unset. Every tab returns realistic demo data so you can explore the whole app without a live connection. The navigation bar shows an amber **MOCK** chip.
-- **Live mode** — `CONDUCTOR_URL` points at a real Conductor. Every action runs against that instance for real. The navigation bar shows a green **LIVE** chip, and an amber warning banner appears across the top of the page.
+A standing banner across the top of every page reminds you that the console acts on a real Conductor.
 
-**Destructive-action warnings.** In live mode, the tabs that can change real data — Settings, Reconciler, Migrations, and the Test Harness — display an inline **⚠ LIVE** warning callout. The buttons that perform those actions also raise a confirmation dialog that describes the production impact before anything runs. In mock mode the same buttons show only a brief confirmation, since nothing is actually changed.
+**Confirmation dialogs.** Every action that changes state — saving or deleting a secret, retrying workflows, creating a batch, running a test, saving a search, expression, or preset — raises a confirmation dialog that names the action and its impact before it runs. The destructive tabs (Settings, Reconciler, Migrations, Test Harness) also show an inline **⚠** warning callout.
 
-If you are about to test against production, read `warning.md` in the repository root first. It lists every operation that can have a detrimental effect on a live environment and how to test it safely.
+Before testing against production, read `warning.md` in the repository root. It lists every operation that can have a detrimental effect on a live environment and how to test it safely.
 
 ---
 
@@ -144,11 +143,11 @@ Filter the list by **Tag** or **Resource Name** using the inputs at the top of t
 
 ### Test Harness Sub-Tab
 
-**What it does:** Run a full workflow simulation using mock task outputs, without needing a live Conductor execution. Useful for verifying that a workflow produces the right output for a given input, and for testing error paths.
+**What it does:** Run a workflow against Conductor's workflow test endpoint with mock task outputs you supply. Useful for verifying that a workflow produces the right output for a given input, and for testing error paths, without running real workers for the tasks you mock.
 
 #### Test Configuration
 
-- **Workflow** — select the workflow to test from the dropdown (populated from Conductor or mock).
+- **Workflow** — select the workflow to test from the dropdown (populated from Conductor).
 - **Version** — optional. If blank, the latest version is used.
 - **Workflow Input JSON** — the input payload to pass to the workflow, as a JSON object.
 - **Task Mocks JSON** — define what each task should return when simulated. Format:
@@ -171,7 +170,7 @@ After selecting a workflow, click **Load Task Refs** to see a list of every task
 
 #### Run Test
 
-Click **Run Test**. The app simulates the workflow execution in-process (mock mode) or against a live Conductor (if configured and not in mock mode). The **Test Result** card appears with:
+Click **Run Test** and confirm the dialog. The app POSTs the workflow, input, and task mocks to Conductor's workflow test endpoint. Any task reference left without a mock runs a real worker, so mock every task to keep the run side-effect free. The **Test Result** card appears with:
 
 - Overall execution status (COMPLETED or FAILED)
 - A table of each task with its reference name, type, status, and output data
@@ -427,11 +426,11 @@ Lists every secret name in Conductor with a usage count and Delete button. Click
 - **Secret Name** — the key name (e.g. `PAYMENT_API_KEY`). If it already exists, its value is overwritten.
 - **Secret Value** — displayed as a password field. Never shown again after saving.
 
-Click **Add / Update**. In live mode a confirmation dialog appears first — saving a secret writes straight to the production Conductor secret store.
+Click **Add / Update**. A confirmation dialog appears first — saving a secret writes straight to the production Conductor secret store.
 
 ### Deleting a Secret
 
-Click **Delete** next to any secret. Check usage first — any active workflow referencing the secret will fail at runtime until it is re-added. In live mode a confirmation dialog spells out this impact before the secret is removed.
+Click **Delete** next to any secret. Check usage first — any active workflow referencing the secret will fail at runtime until it is re-added. A confirmation dialog spells out this impact before the secret is removed.
 
 ---
 
@@ -439,7 +438,7 @@ Click **Delete** next to any secret. Check usage first — any active workflow r
 
 ### Conductor
 
-Set `CONDUCTOR_URL` in `.env`. If `CONDUCTOR_API_KEY` is set, it is sent as `X-Authorization` on every request. If unreachable, the app returns mock data automatically.
+Set `CONDUCTOR_URL` in `.env`. If `CONDUCTOR_API_KEY` is set, it is sent as `X-Authorization` on every request. There is no mock fallback — if Conductor is unreachable, requests surface an error.
 
 ### Salesforce
 

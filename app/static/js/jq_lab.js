@@ -115,6 +115,11 @@
         if (!name) return;
         const description = prompt('Description (optional):') || '';
 
+        if (!confirmAction(
+            'Save JQ expression "' + name + '"',
+            'This adds an expression to the Conductor Companion database.'
+        )) return;
+
         try {
             await apiPost('/api/v1/jq/expressions', { name, description, expression });
             showToast('Saved to library: ' + name, 'success');

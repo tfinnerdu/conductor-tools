@@ -173,6 +173,11 @@ async function runTest() {
         task_mocks: taskMocks,
     };
 
+    if (!confirmAction(
+        'Run a live test of workflow "' + wfName + '"',
+        "This calls Conductor's workflow test endpoint. Any task reference without a mock falls through to a real worker."
+    )) return;
+
     if (btn) { btn.disabled = true; btn.textContent = 'Running...'; }
 
     try {
@@ -200,7 +205,6 @@ function renderTestResult(result) {
     var html = '<div style="background:' + statusBg + ';color:' + statusColor +
         ';padding:0.5rem 0.75rem;border-radius:4px;margin-bottom:0.75rem">' +
         '<strong>Status: ' + escapeHtml(result.status || 'UNKNOWN') + '</strong>' +
-        (result.mock ? ' <span class="badge badge-unknown" style="font-size:0.7rem">simulated</span>' : '') +
         '<span class="text-muted" style="float:right;font-size:0.8rem">ID: ' + escapeHtml(result.workflowId || '') + '</span>' +
         '</div>';
 
@@ -303,6 +307,11 @@ async function savePreset() {
         input: input,
         task_mocks: mocks,
     };
+
+    if (!confirmAction(
+        'Save test preset "' + name + '"',
+        'This adds a preset to the Conductor Companion database.'
+    )) return;
 
     try {
         await apiPost('/api/v1/test-harness/presets', body);

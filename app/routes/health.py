@@ -12,7 +12,6 @@ GET /api/v1/health/deep — readiness with dependency probes. DB + Conductor.
 GET /health             — 308 redirect to /api/v1/health (transition shim).
 GET /health/deep        — 308 redirect to /api/v1/health/deep (transition shim).
 """
-import os
 import time
 import uuid
 
@@ -44,7 +43,6 @@ def health_deep():
     uptime = int(time.time() - start_time)
     request_id = str(uuid.uuid4())
 
-    is_mock = not bool(os.environ.get("CONDUCTOR_URL", "").strip())
     checks = functional_checks()
     status = "ok" if checks["ok"] else "degraded"
 
@@ -54,7 +52,6 @@ def health_deep():
             "type": "functional",
             "request_id": request_id,
             "status": status,
-            "mock": is_mock,
             "checks": {k: v["ok"] for k, v in checks["checks"].items()},
         },
     )
@@ -64,7 +61,6 @@ def health_deep():
         "service": "conductor-companion",
         "version": current_app.config.get("SERVICE_VERSION", "1.0.0"),
         "uptime_seconds": uptime,
-        "mock": is_mock,
         "request_id": request_id,
         "checks": checks["checks"],
     }), (200 if checks["ok"] else 503)

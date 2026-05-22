@@ -1,10 +1,12 @@
 """Ethos Integration Provider
 
-Follows Doane *_provider.py pattern:
   _configured()  — env-gate (ETHOS_URL + ETHOS_API_KEY required)
-  Real path      — calls Ethos REST API
-  Mock fallback  — returns realistic Doane Ethos fixture data
+  Real path      — calls the Ethos REST API
   TODO markers   — every guessed field name flagged with # TODO(ethos):
+
+Requires live Ethos credentials. There is no mock fallback — when Ethos is not
+configured, or an API call fails, the error propagates to the caller so it
+surfaces in the UI rather than being masked by fixture data.
 
 Identity translation via resolve_identity() at the boundary.
 """
@@ -26,6 +28,15 @@ def _configured() -> bool:
     return bool(os.environ.get("ETHOS_URL") and os.environ.get("ETHOS_API_KEY"))
 
 
+def _require_configured() -> None:
+    """Raise a clear error when Ethos credentials are not configured."""
+    if not _configured():
+        raise RuntimeError(
+            "Ethos is not configured — set ETHOS_URL and ETHOS_API_KEY. "
+            "This service has no mock fallback."
+        )
+
+
 def _get_headers() -> dict:
     return {
         "Authorization": f"Bearer {os.environ.get('ETHOS_API_KEY', '')}",
@@ -36,8 +47,6 @@ def _get_headers() -> dict:
 def resolve_identity(platform_user_id: str, source: str = "sis_id") -> str:
     """Single identity translation helper — all providers call this.
 
-    Translates a platform user ID to the source system ID.
-    In mock mode returns the input unchanged.
     # TODO(ethos): implement GUID <-> SIS_ID cross-lookup via ldm_guid table
     """
     return platform_user_id
@@ -49,26 +58,21 @@ def get_person(guid: str) -> dict:
     Real path: GET {ETHOS_URL}/api/persons/{guid}
     Returns Ethos EEDM persons v16 shape.
     """
-    if not _configured():
-        return _mock_person(guid)
-
-    try:
-        resp = requests.get(
-            f"{os.environ['ETHOS_URL']}/api/persons/{guid}",
-            headers=_get_headers(),
-            timeout=10,
-        )
-        resp.raise_for_status()
-        return resp.json()
-    except Exception:
-        return _mock_person(guid)
+    _require_configured()
+    resp = requests.get(
+        f"{os.environ['ETHOS_URL']}/api/persons/{guid}",
+        headers=_get_headers(),
+        timeout=10,
+    )
+    resp.raise_for_status()
+    return resp.json()
 
 
 def get_recent_events(resource: str = "persons", limit: int = 50) -> list:
     """Return recent bus events for a resource type from the in-memory buffer.
 
-    Real path: reads from _event_buffer (populated by ingest_event webhook).
-    In production, query the ethos_events DB table instead.
+    The buffer is populated by the ingest_event webhook — this is real
+    captured data, not a mock fixture.
     # TODO(ethos): replace with DB query once ethos_events table is live
     """
     events = [e for e in _event_buffer if e.get("resource") == resource]
@@ -91,24 +95,23 @@ def search_persons(query: str, limit: int = 20) -> list:
     Real path: GET {ETHOS_URL}/api/persons?criteria={...}
     # TODO(ethos): confirm criteria param name and JSON filter shape
     """
-    if not _configured():
-        return _mock_person_search(query, limit)
-
-    try:
-        resp = requests.get(
-            f"{os.environ['ETHOS_URL']}/api/persons",
-            headers=_get_headers(),
-            params={"criteria": query, "limit": limit},
-            timeout=10,
-        )
-        resp.raise_for_status()
-        return resp.json()
-    except Exception:
-        return _mock_person_search(query, limit)
+    _require_configured()
+    resp = requests.get(
+        f"{os.environ['ETHOS_URL']}/api/persons",
+        headers=_get_headers(),
+        params={"criteria": query, "limit": limit},
+        timeout=10,
+    )
+    resp.raise_for_status()
+    return resp.json()
 
 
 def check_health() -> dict:
-    """Probe Ethos API availability.  Read-only, safe for health checks."""
+    """Probe Ethos API availability.  Read-only, safe for health checks.
+
+    Returns a clear ``not_configured`` status when credentials are absent;
+    this is a health signal, not fabricated person data.
+    """
     if not _configured():
         return {"ok": True, "detail": "not_configured", "latency_ms": None}
 
@@ -129,36 +132,3 @@ def check_health() -> dict:
         return {"ok": False, "latency_ms": round((time.time() - t0) * 1000), "detail": "timeout"}
     except Exception as exc:
         return {"ok": False, "latency_ms": round((time.time() - t0) * 1000), "detail": str(exc)[:120]}
-
-
-# ---------------------------------------------------------------------------
-# Mock fixtures — realistic Doane Ethos EEDM shapes
-# ---------------------------------------------------------------------------
-
-def _mock_person(guid: str) -> dict:
-    return {
-        "id": guid,  # TODO(ethos): confirm top-level GUID field name
-        "content": {
-            "names": [  # TODO(ethos): confirm names array structure
-                {
-                    "firstName": "Alex",
-                    "lastName": "Student",
-                    "fullName": "Alex Student",
-                    "preference": "preferred",
-                }
-            ],
-            "credentials": [  # TODO(ethos): confirm credentials array structure
-                {"type": {"credentialType": "colleaguePersonId"}, "value": "STU" + guid[-6:].upper().replace("-", "0")},  # TODO(ethos): confirm credentialType enum value
-            ],
-            "emails": [  # TODO(ethos): confirm emails array structure
-                {"address": "alex.student@doane.edu", "preference": "primary"},  # TODO(ethos): confirm preference enum
-            ],
-            "phones": [],
-        },
-        "resource": "persons",
-        "operation": "updated",  # TODO(ethos): confirm operation field name
-    }
-
-
-def _mock_person_search(query: str, limit: int) -> list:
-    return [_mock_person(f"mock-guid-{i:04d}") for i in range(min(limit, 5))]

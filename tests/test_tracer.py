@@ -71,9 +71,27 @@ def _make_mock_conductor_tracer():
     return mock
 
 
+def _mock_sf_provider():
+    """A MagicMock sf_provider returning a real result dict (the provider now
+    raises RuntimeError unless Salesforce is configured)."""
+    mock = MagicMock()
+    sf_result = {
+        "records": [{"Id": "SF001", "FirstName": "Alex", "LastName": "Student",
+                     "SIS_ID__c": "SIS123456",
+                     "Ethos_Guid__c": "11111111-1111-1111-1111-111111111111"}],
+        "record_count": 1,
+        "status": "ok",
+        "diagnosis": "Record looks healthy",
+    }
+    mock.find_person_by_sis_id.return_value = sf_result
+    mock.find_person_by_guid.return_value = sf_result
+    return mock
+
+
 def test_trace_by_guid_returns_timeline(client):
     mock = _make_mock_conductor_tracer()
-    with patch("app.routes.tracer.ConductorClient", return_value=mock):
+    with patch("app.routes.tracer.ConductorClient", return_value=mock), \
+         patch("app.routes.tracer.sf_provider", _mock_sf_provider()):
         resp = client.post(
             "/api/v1/tracer/person",
             json={"guid": "11111111-1111-1111-1111-111111111111", "sis_id": ""},
@@ -97,7 +115,8 @@ def test_trace_by_guid_returns_timeline(client):
 
 def test_trace_by_sis_id_returns_timeline(client):
     mock = _make_mock_conductor_tracer()
-    with patch("app.routes.tracer.ConductorClient", return_value=mock):
+    with patch("app.routes.tracer.ConductorClient", return_value=mock), \
+         patch("app.routes.tracer.sf_provider", _mock_sf_provider()):
         resp = client.post(
             "/api/v1/tracer/person",
             json={"guid": "", "sis_id": "SIS123456"},
@@ -170,7 +189,8 @@ def test_recent_traces_buffer_capped_at_20(client):
 
 def test_trace_get_with_guid(client):
     mock = _make_mock_conductor_tracer()
-    with patch("app.routes.tracer.ConductorClient", return_value=mock):
+    with patch("app.routes.tracer.ConductorClient", return_value=mock), \
+         patch("app.routes.tracer.sf_provider", _mock_sf_provider()):
         resp = client.get("/api/v1/tracer/person/11111111-1111-1111-1111-111111111111")
     assert resp.status_code == 200
     data = resp.get_json()
@@ -180,7 +200,8 @@ def test_trace_get_with_guid(client):
 
 def test_trace_get_with_sis_id(client):
     mock = _make_mock_conductor_tracer()
-    with patch("app.routes.tracer.ConductorClient", return_value=mock):
+    with patch("app.routes.tracer.ConductorClient", return_value=mock), \
+         patch("app.routes.tracer.sf_provider", _mock_sf_provider()):
         resp = client.get("/api/v1/tracer/person/SIS123456")
     assert resp.status_code == 200
     data = resp.get_json()

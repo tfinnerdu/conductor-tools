@@ -321,31 +321,7 @@ tr.status-no-workers td:first-child { border-left: 3px solid #dc3545; }
 .font-mono { font-family: "Consolas", "Monaco", "Courier New", monospace; }
 .font-sm   { font-size: 0.8rem; }
 
-/* ── Mock/Live signal — LIVE chip (complements mission-control .mc-mock-chip) */
-/* Mock/Live Signal standard: live mode shows a green "LIVE" badge.           */
-.mc-live-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3em;
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: #155724;
-  background: #d4edda;
-  border: 1px solid #28a745;
-  border-radius: 0.3rem;
-  padding: 0.15em 0.5em;
-  vertical-align: middle;
-  letter-spacing: 0.03em;
-  user-select: none;
-}
-
-.mc-live-chip::before {
-  content: '●';
-  font-size: 0.7em;
-  color: #28a745;
-}
-
-/* ── Live-environment warning banner (shown only against a real Conductor) ── */
+/* ── Production-safety banner (this console always acts on a real Conductor) */
 .env-warning-banner {
   background: #fff3cd;
   color: #664d03;
@@ -364,8 +340,7 @@ tr.status-no-workers td:first-child { border-left: 3px solid #dc3545; }
 .env-warning-banner strong { color: #b31d28; }
 
 /* ── Per-section "destructive action" warning callout ────────────────────── */
-/* Revealed by JS only when connected to a live Conductor. Flags spots where  */
-/* an action writes to / mutates the real production environment.             */
+/* Flags spots where an action writes to / mutates the real environment.      */
 .live-warning {
   background: #fff8e1;
   color: #664d03;
@@ -378,7 +353,7 @@ tr.status-no-workers td:first-child { border-left: 3px solid #dc3545; }
 }
 
 .live-warning::before {
-  content: '⚠ LIVE — ';
+  content: '⚠ ';
   font-weight: 700;
   color: #b31d28;
 }

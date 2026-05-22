@@ -8,7 +8,7 @@ Organized by feature surface. For each feature, follow the manual steps and veri
 
 - App running locally: `python -u run.py`
 - App reachable at `http://localhost:5000`
-- Optional: A live Conductor instance at the URL in `.env`. Without one, mock data is returned automatically.
+- A live Conductor instance configured via `CONDUCTOR_URL` in `.env`. The app has no mock mode — tabs show errors if Conductor is unreachable.
 
 ---
 
@@ -69,21 +69,21 @@ Two endpoints exist. Wire only the live-safe one to Pingdom / Uptime Kuma.
    curl.exe -s http://localhost:5000/health/deep
    ```
 
-**Expected outcome:**
+**Expected outcome (live Conductor configured and reachable):**
 
 ```json
 {
   "status": "ok",
   "checks": {
     "db": { "ok": true, "latency_ms": 3, "detail": "connected" },
-    "conductor": { "ok": true, "detail": "mock_mode", "latency_ms": null }
+    "conductor": { "ok": true, "detail": "reachable", "latency_ms": 18 }
   },
   "request_id": "..."
 }
 ```
 
 - `db.ok` confirms a live database `SELECT 1` round-trip succeeded.
-- `conductor.detail` is `"mock_mode"` when no `CONDUCTOR_URL` is set, or `"reachable"` with a live instance.
+- `conductor.detail` is `"reachable"` with a live instance. There is no mock mode — when `CONDUCTOR_URL` is unset the conductor check reports `"detail": "not_configured"`, `"ok": false`.
 - Returns HTTP 503 with `"status": "degraded"` if either check fails.
 - **Do not wire this endpoint to Pingdom or any automated monitor.**
 
@@ -179,7 +179,7 @@ Two endpoints exist. Wire only the live-safe one to Pingdom / Uptime Kuma.
 
 **Steps:**
 
-1. Enter a workflow execution ID in the **Workflow execution ID** field (use `mock-wf-0001` or any real ID from Search results).
+1. Enter a workflow execution ID in the **Workflow execution ID** field (use any real ID from Search results).
 2. Optionally enter a task reference name.
 3. Click **Load Output**.
 
@@ -413,9 +413,9 @@ Two endpoints exist. Wire only the live-safe one to Pingdom / Uptime Kuma.
 
 **Steps:**
 
-1. Run:
+1. Run, substituting a real failed workflow ID from the failure groups:
    ```
-   curl.exe -s http://localhost:5000/api/v1/reconciler/failures/mock-fail-ethos-0001
+   curl.exe -s http://localhost:5000/api/v1/reconciler/failures/<workflowId>
    ```
 
 **Expected outcome:** A JSON object with `failedTask`, `errorCode`, `retryCount`, and `sisId` fields. The `errorCode` should be a short code like `HTTP_404` rather than the full error string.
@@ -524,9 +524,9 @@ Two endpoints exist. Wire only the live-safe one to Pingdom / Uptime Kuma.
 
 **Steps:**
 
-1. With a workflow and mocks configured, click **Run Test**.
+1. With a workflow and mocks configured, click **Run Test** and confirm the dialog.
 
-**Expected outcome:** The Test Result card appears showing the workflow execution status (COMPLETED or FAILED), a table of tasks with their statuses and durations, and the workflow output. A "simulated" badge confirms this ran in mock mode.
+**Expected outcome:** The Test Result card appears showing the workflow execution status (COMPLETED or FAILED), a table of tasks with their statuses and durations, and the workflow output.
 
 ### 9f. Verify Ethos 404 preset causes failure
 
@@ -600,60 +600,50 @@ Two endpoints exist. Wire only the live-safe one to Pingdom / Uptime Kuma.
 
 ---
 
-## 11. Mock/Live Signal & Production-Safety Warnings
+## 11. Production-Safety Surfaces
 
-These checks verify the app correctly signals whether it is on fixture data or a real Conductor, and that destructive surfaces are guarded in live mode. See `warning.md` for the full list of caustic operations.
+The app always acts on the real Conductor — there is no mock mode. These checks verify the production-safety banner, the per-section warnings, and the confirmation dialogs. See `warning.md` for the catalogue of caustic operations.
 
-### 11a. Mock-mode signals
+### 11a. Production-safety banner
 
-**Goal:** Confirm the app advertises mock mode when `CONDUCTOR_URL` is unset.
-
-**Steps:**
-
-1. Ensure `CONDUCTOR_URL` is empty/unset in `.env`, then start the app.
-2. Open `http://localhost:5000` and look at the navigation bar.
-3. Run `curl.exe -s -i http://localhost:5000/api/v1/health` and read the response headers.
-
-**Expected outcome:**
-
-- An amber **MOCK** chip is visible in the navbar; no green LIVE chip.
-- No live-environment banner appears across the top of the page.
-- The response includes the header `X-Mock-Mode: true`.
-
-### 11b. Live-mode signals
-
-**Goal:** Confirm the app advertises live mode when `CONDUCTOR_URL` is set.
+**Goal:** Confirm the standing banner is shown.
 
 **Steps:**
 
-1. Set `CONDUCTOR_URL` to a real Conductor URL in `.env` and restart the app.
-2. Open `http://localhost:5000` and look at the navigation bar and top of page.
-3. Run `curl.exe -s -i http://localhost:5000/api/v1/health` and read the response headers.
+1. Start the app and open `http://localhost:5000`.
 
-**Expected outcome:**
+**Expected outcome:** an amber banner across the top of the page reads "This console acts on a real Conductor…" and references `warning.md`. It is present on every tab.
 
-- A green **LIVE** chip is visible in the navbar; no amber MOCK chip.
-- An amber **LIVE environment** banner appears across the top of the page.
-- The response does **not** include an `X-Mock-Mode` header.
+### 11b. Per-section destructive-action warnings
 
-### 11c. Per-section live warnings
-
-**Goal:** Confirm destructive tabs show inline warnings in live mode.
+**Goal:** Confirm the destructive tabs show inline warnings.
 
 **Steps:**
 
-1. With the app in live mode (11b), open the Settings, Reconciler, and Migrations tabs, plus the JQ Lab → Test Harness sub-tab, in turn.
+1. Open the Settings, Reconciler, and Migrations tabs, plus the JQ Lab → Test Harness sub-tab, in turn.
 
-**Expected outcome:** each of the four surfaces shows an inline **⚠ LIVE** warning callout describing the production impact. In mock mode (11a) none of these callouts appear.
+**Expected outcome:** each of the four surfaces shows an inline **⚠** warning callout describing the production impact of its actions.
 
-### 11d. Destructive-action confirmation
+### 11c. Confirmation on state-changing actions
 
-**Goal:** Confirm destructive buttons require confirmation in live mode.
+**Goal:** Confirm every state-changing action requires confirmation.
 
 **Steps:**
 
-1. With the app in live mode, go to Settings and click **Delete** on a secret — then cancel the dialog.
-2. Go to Migrations, open a batch, and click **Retry Failures** — then cancel the dialog.
-3. Go to Reconciler, select a failure group, and click **Bulk Retry Selected** — then cancel the dialog.
+1. Settings → click **Delete** on a secret, and submit the Add / Update form — cancel each dialog.
+2. Migrations → submit the New Batch form, and click **Retry Failures** on a batch — cancel each dialog.
+3. Reconciler → select a failure group and click **Bulk Retry Selected** — cancel the dialog.
+4. JQ Lab → Test Harness → click **Run Test**; JQ Lab → **Save to Library**; Search → **Save Search** and the **X** delete on a saved search — cancel each dialog.
 
-**Expected outcome:** each click raises a confirmation dialog that names the action and its production impact. Cancelling the dialog performs no action. (In mock mode the same buttons show only a short confirmation.)
+**Expected outcome:** every one of these raises a confirmation dialog naming the action and its impact. Cancelling performs no action; the request is sent only on accept.
+
+### 11d. Errors surface instead of fake data
+
+**Goal:** Confirm an unreachable Conductor produces a visible error, not fabricated data.
+
+**Steps:**
+
+1. Set `CONDUCTOR_URL` to an unreachable address (or leave it unset) and restart.
+2. Open the Search or Workers tab and run a query.
+
+**Expected outcome:** the tab shows an error message. The app never substitutes demo or fixture data.

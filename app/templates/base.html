@@ -25,8 +25,6 @@
         <span class="doane-dot"></span>Conductor Companion
     </a>
     <div class="ms-auto d-flex align-items-center gap-2">
-        <span id="mock-mode-chip" class="mc-mock-chip d-none">MOCK</span>
-        <span id="live-mode-chip" class="mc-live-chip d-none">LIVE</span>
         <span id="version-badge" class="badge-slate" style="font-size:0.72rem;padding:0.3em 0.6em;border-radius:0.3rem;white-space:nowrap"></span>
     </div>
 </nav>
@@ -48,15 +46,14 @@
 
 <!-- ── Main content ──────────────────────────────────────────────────────── -->
 <div class="container-fluid px-3 py-3">
-    <!-- Live-environment warning — revealed by app.js when not in mock mode -->
-    <div id="env-warning-banner" class="env-warning-banner d-none" role="alert">
+    <!-- Production-safety banner — this console always acts on a real Conductor -->
+    <div id="env-warning-banner" class="env-warning-banner" role="alert">
         <span class="env-warning-banner__icon" aria-hidden="true">&#9888;</span>
         <span>
-            <strong>LIVE environment.</strong>
-            Connected to a real Conductor instance &mdash; actions on the
-            Settings, Reconciler, Migrations, and Test Harness surfaces change
-            production data. Review <code>warning.md</code> before running
-            destructive operations.
+            <strong>This console acts on a real Conductor.</strong>
+            State-changing actions take effect immediately and cannot be undone
+            here. Review <code>warning.md</code> before running destructive
+            operations.
         </span>
     </div>
     {% block content %}{% endblock %}
@@ -91,16 +88,6 @@ document.addEventListener('DOMContentLoaded', function () {
         const el = document.getElementById('version-badge');
         if (el) el.textContent = 'v' + (data.version || '1.0.0');
     }).catch(() => {});
-
-    // Mock/live signal from readiness endpoint — drives the MOCK/LIVE chip,
-    // the live-environment banner, and per-section destructive-action warnings.
-    fetch('/api/v1/health/deep').then(r => r.json()).then(data => {
-        applyConductorEnvSignals(data.mock);
-    }).catch(() => {
-        // Health probe unreachable — fail safe: treat as live so destructive
-        // warnings stay visible rather than being silently suppressed.
-        applyConductorEnvSignals(false);
-    });
 });
 </script>
 

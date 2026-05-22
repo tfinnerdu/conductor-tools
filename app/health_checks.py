@@ -29,7 +29,7 @@ def check_conductor_live() -> dict:
     """
     base_url = os.environ.get("CONDUCTOR_URL", "").rstrip("/")
     if not base_url:
-        return {"ok": True, "detail": "not_configured", "latency_ms": None}
+        return {"ok": False, "detail": "not_configured", "latency_ms": None}
 
     api_key = os.environ.get("CONDUCTOR_API_KEY")
     headers = {"Accept": "application/json"}
@@ -75,12 +75,13 @@ def check_db() -> dict:
 def check_conductor_functional() -> dict:
     """Functional Conductor check: fetch workflow definitions (real API call).
 
-    CI/deep-check only. In mock mode returns ok without hitting the network.
+    CI/deep-check only. Conductor is a critical dependency — when CONDUCTOR_URL
+    is not configured this reports ok=False so /api/v1/health/deep returns 503.
     Returns {ok, latency_ms, detail, workflow_count?}.
     """
     base_url = os.environ.get("CONDUCTOR_URL", "").rstrip("/")
     if not base_url:
-        return {"ok": True, "detail": "mock_mode", "latency_ms": None}
+        return {"ok": False, "detail": "not_configured", "latency_ms": None}
 
     t0 = time.time()
     try:

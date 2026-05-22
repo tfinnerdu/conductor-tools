@@ -10,7 +10,8 @@ import pytest
 
 def _make_mock_conductor_th():
     mock = MagicMock()
-    mock._mock_mode = True
+    mock.base_url = "http://conductor.test"
+    mock.get_headers.return_value = {}
 
     mock.list_workflow_definitions.return_value = [
         {"name": "student_enrollment", "version": 1, "description": "Student enrollment"},
@@ -86,12 +87,21 @@ def test_get_workflow_tasks_returns_refs(client):
 
 
 # ---------------------------------------------------------------------------
-# POST /run (mock mode simulation)
+# POST /run — posts to Conductor's workflow test endpoint
 # ---------------------------------------------------------------------------
 
-def test_run_in_mock_mode_returns_synthetic_result(client):
+def test_run_posts_to_conductor_test_endpoint(client):
+    """run_test POSTs to Conductor's /api/workflow/test and returns the result."""
     mock = _make_mock_conductor_th()
-    with patch("app.routes.test_harness.ConductorClient", return_value=mock):
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status.return_value = None
+    mock_resp.json.return_value = {
+        "workflowId": "test-run-001",
+        "status": "COMPLETED",
+        "tasks": [{"referenceTaskName": "enroll_ref", "status": "COMPLETED"}],
+    }
+    with patch("app.routes.test_harness.ConductorClient", return_value=mock), \
+         patch("app.routes.test_harness.requests.post", return_value=mock_resp) as mock_post:
         resp = client.post(
             "/api/v1/test-harness/run",
             json={
@@ -99,26 +109,18 @@ def test_run_in_mock_mode_returns_synthetic_result(client):
                 "version": 1,
                 "input": {"sis_id": "SIS123456", "guid": "11111111-1111-1111-1111-111111111111"},
                 "task_mocks": {
-                    "ethos_get_person_ref": {
-                        "outputData": {
-                            "person": {"id": "11111111-1111-1111-1111-111111111111", "firstName": "Alex"}
-                        }
-                    },
-                    "enroll_ref": {
-                        "outputData": {"enrolled": True, "enrollmentId": "ENR-001"}
-                    },
+                    "enroll_ref": {"outputData": {"enrolled": True, "enrollmentId": "ENR-001"}},
                 },
             },
             content_type="application/json",
         )
     assert resp.status_code == 200
     data = resp.get_json()
-    assert "workflowId" in data
-    assert data["status"] in ("COMPLETED", "FAILED")
-    assert "tasks" in data
+    assert data["workflowId"] == "test-run-001"
+    assert data["status"] == "COMPLETED"
     assert isinstance(data["tasks"], list)
-    assert len(data["tasks"]) > 0
-    assert data.get("mock") is True
+    # Must hit Conductor's workflow test endpoint
+    assert mock_post.call_args[0][0] == "http://conductor.test/api/workflow/test"
 
 
 def test_run_missing_workflow_name_returns_error(client):
@@ -134,32 +136,35 @@ def test_run_missing_workflow_name_returns_error(client):
     assert data["code"] == "VALIDATION_ERROR"
 
 
-def test_run_failed_task_stops_execution(client):
-    """When a mock output contains an error key, execution should stop at that task."""
+def test_run_surfaces_failed_result_from_conductor(client):
+    """A FAILED result from Conductor's test endpoint is surfaced unchanged."""
     mock = _make_mock_conductor_th()
-    with patch("app.routes.test_harness.ConductorClient", return_value=mock):
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status.return_value = None
+    mock_resp.json.return_value = {
+        "workflowId": "test-run-002",
+        "status": "FAILED",
+        "tasks": [{
+            "referenceTaskName": "ethos_get_person_ref",
+            "status": "FAILED",
+            "reasonForIncompletion": "Person not found",
+        }],
+    }
+    with patch("app.routes.test_harness.ConductorClient", return_value=mock), \
+         patch("app.routes.test_harness.requests.post", return_value=mock_resp):
         resp = client.post(
             "/api/v1/test-harness/run",
             json={
                 "workflow_name": "student_enrollment",
                 "version": 1,
                 "input": {"sis_id": "SIS_NOTFOUND"},
-                "task_mocks": {
-                    "ethos_get_person_ref": {
-                        "outputData": {
-                            "error": "HTTP_404",
-                            "message": "Person not found",
-                            "statusCode": 404,
-                        }
-                    },
-                },
+                "task_mocks": {},
             },
             content_type="application/json",
         )
     assert resp.status_code == 200
     data = resp.get_json()
     assert data["status"] == "FAILED"
-    # Only the first task should have run
     failed_tasks = [t for t in data["tasks"] if t["status"] == "FAILED"]
     assert len(failed_tasks) >= 1
 

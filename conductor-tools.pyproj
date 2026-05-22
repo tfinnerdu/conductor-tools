@@ -70,7 +70,7 @@
     <Compile Include="tests\characterization\__init__.py" />
     <Compile Include="tests\characterization\test_health_contract.py" />
     <Compile Include="tests\characterization\test_error_envelope_contract.py" />
-    <Compile Include="tests\characterization\test_mock_live_signal_contract.py" />
+    <Compile Include="tests\characterization\test_production_safety_contract.py" />
   </ItemGroup>
   <ItemGroup>
     <Content Include=".env" />

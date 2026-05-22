@@ -62,7 +62,7 @@ async function showUsages(name) {
 }
 
 async function deleteSecret(name) {
-    if (!confirmDestructive(
+    if (!confirmAction(
         `Delete secret "${name}"`,
         'Workflows that reference this secret will fail until it is recreated.'
     )) return;
@@ -80,7 +80,7 @@ async function handleAddSecret(e) {
     const name = document.getElementById('new-secret-name').value.trim();
     const value = document.getElementById('new-secret-value').value;
     if (!name) return;
-    if (!confirmDestructive(
+    if (!confirmAction(
         `Save secret "${name}" to Conductor`,
         'This creates or overwrites the secret value used by live workflows.'
     )) return;

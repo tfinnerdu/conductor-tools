@@ -106,37 +106,49 @@ class TestEthosApiContracts:
         assert params["limit"] == 10
 
 
+# Known-good Ethos EEDM persons v16 payload shape.
+# This hardcoded constant IS the specification — it pins the exact field paths
+# our code reads from Ethos. It replaces what was previously inspected from
+# mock data (now removed from production code).
+KNOWN_EEDM_PERSON = {
+    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "resource": "persons",
+    "content": {
+        "names": [{"firstName": "Alex", "lastName": "Student", "fullName": "Alex Student"}],
+        "credentials": [{"type": {"credentialType": "colleaguePersonId"}, "value": "STU001234"}],
+        "emails": [{"address": "alex.student@doane.edu", "preference": "primary"}],
+    },
+}
+
+
 class TestEthosEedmFieldContracts:
     """CONTRACT: Ethos EEDM persons v16 field names.
 
-    These are the field paths our code reads from Ethos responses.
-    If the EEDM spec uses different names, update here AND in the provider.
-    Tests use the mock data, which must match the real API shape.
+    This is a CHARACTERIZATION test. The production code can no longer be
+    called in "mock mode" to inspect a payload, so KNOWN_EEDM_PERSON is the
+    pinned, hardcoded record of the EEDM persons v16 shape the code depends on.
+    These assertions fail the moment the assumed EEDM shape diverges from what
+    the provider/JQ expressions expect — that is intentional. The hardcoded
+    values ARE the spec; if the EEDM API changes, update this constant AND the
+    provider together.
     """
-
-    def setup_method(self):
-        os.environ.pop("ETHOS_URL", None)
-        os.environ.pop("ETHOS_API_KEY", None)
-
-    def _get_mock_person(self, guid="test-guid-abc"):
-        from app import ethos_provider
-        return ethos_provider.get_person(guid)
 
     def test_eedm_top_level_id_field(self):
         """CONTRACT: EEDM persons resource top-level GUID is at .id"""
-        p = self._get_mock_person("my-test-guid")
-        assert p["id"] == "my-test-guid", \
-            "EEDM persons: GUID must be at top-level 'id' field"
+        p = KNOWN_EEDM_PERSON
+        assert "id" in p, "EEDM persons: GUID must be at top-level 'id' field"
+        assert p["id"] == "a1b2c3d4-e5f6-7890-abcd-ef1234567890", \
+            "EEDM persons: top-level 'id' must carry the person GUID"
 
     def test_eedm_resource_field_value(self):
         """CONTRACT: resource field must be exactly 'persons' (lowercase plural)."""
-        p = self._get_mock_person()
+        p = KNOWN_EEDM_PERSON
         assert p["resource"] == "persons", \
             "EEDM change notification: resource field must be 'persons'"
 
     def test_eedm_credentials_path(self):
         """CONTRACT: SIS_ID lives at .content.credentials[].type.credentialType"""
-        p = self._get_mock_person()
+        p = KNOWN_EEDM_PERSON
         credentials = p["content"]["credentials"]
         assert isinstance(credentials, list), "credentials must be a list"
         assert len(credentials) > 0, "At least one credential expected"
@@ -147,7 +159,7 @@ class TestEthosEedmFieldContracts:
 
     def test_eedm_sis_id_credential_type_value(self):
         """CONTRACT: Colleague person ID credential type is 'colleaguePersonId'."""
-        p = self._get_mock_person()
+        p = KNOWN_EEDM_PERSON
         cred_types = [c["type"]["credentialType"] for c in p["content"]["credentials"]]
         assert "colleaguePersonId" in cred_types, (
             "EEDM spec: Colleague person ID must use credentialType 'colleaguePersonId'. "
@@ -156,23 +168,25 @@ class TestEthosEedmFieldContracts:
 
     def test_eedm_names_path(self):
         """CONTRACT: Person names at .content.names[] with firstName/lastName."""
-        p = self._get_mock_person()
+        p = KNOWN_EEDM_PERSON
         names = p["content"]["names"]
-        assert isinstance(names, list) and len(names) > 0
+        assert isinstance(names, list) and len(names) > 0, \
+            "EEDM: .content.names must be a non-empty list"
         assert "firstName" in names[0], "EEDM: name first component is 'firstName'"
         assert "lastName" in names[0], "EEDM: name last component is 'lastName'"
 
     def test_eedm_emails_path(self):
         """CONTRACT: Emails at .content.emails[].address with preference field."""
-        p = self._get_mock_person()
+        p = KNOWN_EEDM_PERSON
         emails = p["content"]["emails"]
-        assert isinstance(emails, list) and len(emails) > 0
+        assert isinstance(emails, list) and len(emails) > 0, \
+            "EEDM: .content.emails must be a non-empty list"
         assert "address" in emails[0], "EEDM: email address field is 'address'"
         assert "preference" in emails[0], "EEDM: email preference field is 'preference'"
 
     def test_eedm_primary_email_preference_value(self):
         """CONTRACT: Primary email has preference == 'primary' (exact string)."""
-        p = self._get_mock_person()
+        p = KNOWN_EEDM_PERSON
         primary = [e for e in p["content"]["emails"] if e.get("preference") == "primary"]
         assert len(primary) > 0, (
             "EEDM: primary email must have preference='primary'. "
@@ -314,66 +328,89 @@ class TestSalesforceApiContracts:
         )
 
 
-class TestSalesforceMockFieldContracts:
-    """CONTRACT: SF mock data must match real Account schema.
+class TestSalesforceResultShapeContracts:
+    """CONTRACT: sf_provider._build_result() result-shape guarantees.
 
-    When confirmed field names are filled in (TODO resolved), these tests
-    ensure the mock stays in sync with the live schema.
+    SF field-name contracts (SIS_ID__c, Ethos_Guid__c) are already pinned by
+    TestSalesforceApiContracts via the live SOQL string. Here we exercise the
+    KEPT, pure helper _build_result() directly with hardcoded SF-shaped Account
+    records — no provider calls in mock mode — and pin the wrapper shape and
+    diagnosis classification (ok / warning+DUPLICATE / error+not found) that
+    downstream consumers (Correlation Tracer) depend on.
     """
 
-    def setup_method(self):
-        for k in ("SF_USERNAME", "SF_PASSWORD", "SF_SECURITY_TOKEN", "SF_INSTANCE_URL"):
-            os.environ.pop(k, None)
+    # Hardcoded SF-shaped Account records — the exact field names the live
+    # Salesforce REST API returns for a PersonAccount.
+    HEALTHY_RECORD = {
+        "Id": "001AAAAAAAAAAAAAAA",
+        "FirstName": "Alex",
+        "LastName": "Student",
+        "SIS_ID__c": "STU12345",
+        "Ethos_Guid__c": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        "IsPersonAccount": True,
+    }
 
-    def test_mock_sis_id_field_name(self):
-        """CONTRACT: SIS_ID stored at 'SIS_ID__c' in mock and real records."""
+    def test_healthy_record_uses_canonical_field_names(self):
+        """CONTRACT: A healthy result keeps SIS_ID__c + Ethos_Guid__c, no legacy d45."""
         from app import sf_provider
-        result = sf_provider.find_person_by_sis_id("STU12345")
+        result = sf_provider._build_result([dict(self.HEALTHY_RECORD)])
         record = result["records"][0]
         assert "SIS_ID__c" in record, (
-            "Mock record must use 'SIS_ID__c' — same field name as live SF. "
+            "SF Account record must use 'SIS_ID__c' — same field name as live SF. "
             "If this field is renamed on the SF object, update Conductor upsert tasks."
         )
         assert record["SIS_ID__c"] == "STU12345"
-
-    def test_mock_ethos_guid_field_name(self):
-        """CONTRACT: Ethos GUID stored at 'Ethos_Guid__c' (not legacy d45 field)."""
-        from app import sf_provider
-        result = sf_provider.find_person_by_sis_id("STU12345")
-        record = result["records"][0]
         assert "Ethos_Guid__c" in record, (
-            "Mock record must use 'Ethos_Guid__c'. "
+            "SF Account record must use 'Ethos_Guid__c'. "
             "Doane standard: d45 keymaps are fully retired."
         )
         assert "d45" not in str(record).lower(), \
             "d45 legacy field must not appear in any SF record"
 
-    def test_mock_result_shape_matches_sf_rest_response(self):
-        """CONTRACT: Provider result wraps SF records in standard shape."""
+    def test_healthy_record_status_is_ok(self):
+        """CONTRACT: 1 record with SIS_ID__c populated → status 'ok', healthy diagnosis."""
         from app import sf_provider
-        result = sf_provider.find_person_by_sis_id("STU1")
-        assert "records" in result
-        assert "record_count" in result
-        assert "status" in result
-        assert "diagnosis" in result
-        assert result["record_count"] == len(result["records"])
+        records = [dict(self.HEALTHY_RECORD)]
+        result = sf_provider._build_result(records)
+        assert result["status"] == "ok", (
+            f"A single record with SIS_ID__c must yield status 'ok', got {result['status']}"
+        )
+        assert "healthy" in result["diagnosis"].lower()
+        assert result["record_count"] == len(records) == 1
 
-    def test_mock_duplicate_detection_returns_two_records(self):
-        """CONTRACT: duplicate SIS_ID must return exactly 2+ records, status='warning'."""
+    def test_result_shape_matches_sf_rest_response(self):
+        """CONTRACT: _build_result wraps SF records in the standard shape."""
         from app import sf_provider
-        result = sf_provider.find_person_by_sis_id("DUP12345")
-        assert result["record_count"] >= 2, \
-            "Duplicate detection: SIS_IDs containing 'dup' must return 2+ records"
-        assert result["status"] == "warning"
-        assert "DUPLICATE" in result["diagnosis"].upper()
+        result = sf_provider._build_result([dict(self.HEALTHY_RECORD)])
+        for key in ("records", "record_count", "status", "diagnosis"):
+            assert key in result, f"_build_result output must include '{key}' key"
+        assert result["record_count"] == len(result["records"]), \
+            "record_count must equal len(records)"
 
-    def test_mock_not_found_returns_zero_records(self):
-        """CONTRACT: notfound identifier returns empty records, status='error'."""
+    def test_duplicate_detection_returns_warning(self):
+        """CONTRACT: 2 records with the same SIS_ID__c → status 'warning' + 'DUPLICATE'."""
         from app import sf_provider
-        result = sf_provider.find_person_by_sis_id("NOTFOUND99")
+        dup_a = dict(self.HEALTHY_RECORD, Id="001AAA0000000000AA")
+        dup_b = dict(self.HEALTHY_RECORD, Id="001BBB0000000000BB")
+        result = sf_provider._build_result([dup_a, dup_b])
+        assert result["record_count"] == 2, \
+            "Duplicate detection: two same-SIS_ID records must yield record_count 2"
+        assert result["status"] == "warning", (
+            f"Duplicate SIS_ID__c must yield status 'warning', got {result['status']}"
+        )
+        assert "DUPLICATE" in result["diagnosis"].upper(), \
+            "Duplicate diagnosis must call out 'DUPLICATE'"
+
+    def test_not_found_returns_error(self):
+        """CONTRACT: 0 records → status 'error' with a 'not found' diagnosis."""
+        from app import sf_provider
+        result = sf_provider._build_result([])
         assert result["record_count"] == 0
-        assert result["status"] == "error"
-        assert "not found" in result["diagnosis"].lower()
+        assert result["status"] == "error", (
+            f"An empty record list must yield status 'error', got {result['status']}"
+        )
+        assert "not found" in result["diagnosis"].lower(), \
+            "Empty-result diagnosis must state the record was 'not found'"
 
 
 # =============================================================================

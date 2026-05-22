@@ -191,6 +191,10 @@
     };
 
     window.deleteSavedSearch = async function (id, btn) {
+        if (!confirmAction(
+            'Delete this saved search',
+            'This removes the saved search from the Conductor Companion database.'
+        )) return;
         try {
             await apiDelete('/api/v1/search/saved/' + id);
             showToast('Deleted', 'success', 2000);
@@ -206,6 +210,10 @@
         const workflowType = (document.getElementById('search-workflow-type') || {}).value || '';
         const statusInput = document.querySelector('input[name="search-status"]:checked');
         const status = statusInput ? statusInput.value : '';
+        if (!confirmAction(
+            'Save search "' + name + '"',
+            'This adds a saved search to the Conductor Companion database.'
+        )) return;
         try {
             await apiPost('/api/v1/search/saved', {
                 name,

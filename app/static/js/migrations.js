@@ -74,7 +74,7 @@
     };
 
     window.retryFailures = async function (batchId) {
-        if (!confirmDestructive(
+        if (!confirmAction(
             'Retry all FAILED executions in this batch',
             'Every failed workflow re-runs against Conductor and re-triggers its task side effects.'
         )) return;
@@ -120,6 +120,10 @@
             showToast('Name and Workflow Name are required', 'warning');
             return;
         }
+        if (!confirmAction(
+            'Create migration batch "' + name + '"',
+            'This adds a new batch record to the Conductor Companion database.'
+        )) return;
 
         const btn = document.getElementById('create-batch-btn');
         if (btn) { btn.disabled = true; btn.textContent = 'Creating...'; }

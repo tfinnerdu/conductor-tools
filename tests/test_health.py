@@ -14,11 +14,12 @@ import pytest
 # ---------------------------------------------------------------------------
 
 class TestCheckConductorLive:
-    def test_not_configured_returns_ok(self):
+    def test_not_configured_returns_not_configured(self):
+        """No CONDUCTOR_URL is a misconfiguration — the check reports not ok."""
         with patch.dict(os.environ, {"CONDUCTOR_URL": ""}):
             from app.health_checks import check_conductor_live
             result = check_conductor_live()
-        assert result["ok"] is True
+        assert result["ok"] is False
         assert result["detail"] == "not_configured"
         assert result["latency_ms"] is None
 
@@ -71,12 +72,13 @@ class TestCheckDb:
 
 
 class TestCheckConductorFunctional:
-    def test_mock_mode_returns_ok(self):
+    def test_not_configured_returns_not_configured(self):
+        """Conductor is a critical dependency — an unset URL reports not ok."""
         with patch.dict(os.environ, {"CONDUCTOR_URL": ""}):
             from app.health_checks import check_conductor_functional
             result = check_conductor_functional()
-        assert result["ok"] is True
-        assert result["detail"] == "mock_mode"
+        assert result["ok"] is False
+        assert result["detail"] == "not_configured"
 
     def test_live_mode_returns_workflow_count(self):
         mock_client = MagicMock()
@@ -203,26 +205,16 @@ class TestHealthDeepEndpoint:
         assert resp.status_code == 503
         assert resp.get_json()["status"] == "degraded"
 
-    def test_mock_key_present_in_mock_mode(self, client):
-        """Deep health must include 'mock' key — required for mock/live signal."""
-        with patch.dict(os.environ, {"CONDUCTOR_URL": ""}):
-            with patch("app.routes.health.functional_checks", return_value={
-                "ok": True, "checks": {"db": {"ok": True, "latency_ms": 1, "detail": "connected"},
-                                       "conductor": {"ok": True, "latency_ms": None, "detail": "mock_mode"}},
-            }):
-                resp = client.get("/api/v1/health/deep")
-        data = resp.get_json()
-        assert "mock" in data, "Deep health must include 'mock' key"
-        assert data["mock"] is True  # CONDUCTOR_URL is empty → mock mode
-
-    def test_mock_is_false_when_live(self, client):
-        with patch.dict(os.environ, {"CONDUCTOR_URL": "http://conductor.doane.edu"}):
-            with patch("app.routes.health.functional_checks", return_value={
-                "ok": True, "checks": {"db": {"ok": True, "latency_ms": 1, "detail": "connected"},
-                                       "conductor": {"ok": True, "latency_ms": 10, "detail": "reachable"}},
-            }):
-                resp = client.get("/api/v1/health/deep")
-        assert resp.get_json()["mock"] is False
+    def test_no_mock_key_in_deep_health(self, client):
+        """The app has no mock mode — deep health must not advertise a 'mock' key."""
+        with patch("app.routes.health.functional_checks", return_value={
+            "ok": True, "checks": {"db": {"ok": True, "latency_ms": 1, "detail": "connected"},
+                                   "conductor": {"ok": True, "latency_ms": 10, "detail": "reachable"}},
+        }):
+            resp = client.get("/api/v1/health/deep")
+        assert "mock" not in resp.get_json(), (
+            "There is no mock mode — deep health must not include a 'mock' key."
+        )
 
     def test_legacy_deep_path_redirects_308(self, client):
         """Bare /health/deep must 308-redirect (transition shim)."""

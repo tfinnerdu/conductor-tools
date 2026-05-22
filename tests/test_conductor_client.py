@@ -96,8 +96,8 @@ class TestSearchCallsCorrectEndpoint:
 
         os.environ.pop("CONDUCTOR_URL", None)
 
-    def test_search_falls_back_to_mock_on_error(self):
-        """When CONDUCTOR_URL is set but the request fails, mock data is returned."""
+    def test_search_raises_on_error(self):
+        """When a live request fails, the error propagates — there is no mock fallback."""
         os.environ["CONDUCTOR_URL"] = "http://unreachable.test:9999"
 
         import requests
@@ -106,8 +106,7 @@ class TestSearchCallsCorrectEndpoint:
             import app.conductor_client as cc_module
             reload(cc_module)
             client = cc_module.ConductorClient()
-            result = client.search(status="FAILED")
+            with pytest.raises(requests.exceptions.ConnectionError):
+                client.search(status="FAILED")
 
-        assert "totalHits" in result
-        assert "results" in result
         os.environ.pop("CONDUCTOR_URL", None)

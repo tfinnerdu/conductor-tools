@@ -10,22 +10,17 @@ Salesforce, or Colleague.
 
 ---
 
-## Are you in mock mode or live mode?
+## No mock data — the app always hits the configured Conductor
 
-The app falls back to fabricated fixture data whenever `CONDUCTOR_URL` is unset.
-With `CONDUCTOR_URL` pointed at a real instance, every action below hits that
-instance for real. Three signals tell you which mode you are in:
+This service has **no mock mode and no fixture fallback**. Every tab calls the
+real Conductor, Salesforce, and Ethos. If `CONDUCTOR_URL` is unset, or an
+upstream call fails, the affected tab shows an **error** — it never substitutes
+fabricated data. A standing banner at the top of every page reminds you that
+the console acts on a real Conductor.
 
-| Signal | Mock mode | Live mode |
-|---|---|---|
-| Navbar chip | amber **MOCK** | green **LIVE** |
-| Top-of-page banner | hidden | amber **LIVE environment** banner |
-| `GET /api/v1/health/deep` body | `"mock": true` | `"mock": false` |
-| API response header | `X-Mock-Mode: true` | header absent |
-
-When live, each destructive section also shows an inline **⚠ LIVE** warning
-callout, and destructive buttons raise a confirmation dialog that spells out the
-production impact.
+Every state-changing action — including the caustic ones below — raises a
+**confirmation dialog** that names the action and its impact before it runs.
+The destructive surfaces also carry an inline **⚠** warning callout.
 
 ---
 
@@ -81,18 +76,18 @@ production impact.
 
 ## HIGH — real side effects
 
-### H1. Workflow Test Harness — live run
+### H1. Workflow Test Harness — Run Test
 - **Where:** JQ Lab tab → Test Harness sub-tab → Run Test.
   `app/routes/test_harness.py` `run_test`.
-- **What happens:** in mock mode the run is simulated in-process and is
-  side-effect free. In **live mode** it POSTs to Conductor's `/api/workflow/test`
-  endpoint.
+- **What happens:** every run POSTs to Conductor's `/api/workflow/test`
+  endpoint on the live Conductor.
 - **Risk:** Conductor's test endpoint only mocks the task references you supply
   in `task_mocks`. **Any task reference left without a mock falls through to a
   real worker** — which can perform real upserts/writes.
-- **In-app safeguard:** inline LIVE warning on the Test Configuration card.
+- **In-app safeguard:** inline warning on the Test Configuration card +
+  confirmation dialog.
 - **Before you test:** supply a mock for **every** task reference in the
-  workflow (use "Load Task Refs" to enumerate them) before running live.
+  workflow (use "Load Task Refs" to enumerate them) before running it.
 
 ### H2. Daily digest notifications (scheduled)
 - **Where:** `app/routes/digest.py` `init_scheduler`,
@@ -112,25 +107,7 @@ production impact.
 
 ## MEDIUM — correctness / trust hazards
 
-### M1. Silent mock fallback masks live failures
-- **Where:** `app/conductor_client.py`, `app/sf_provider.py`,
-  `app/ethos_provider.py` — every live read path is wrapped in
-  `try: ... except Exception: return _mock_...()`.
-- **What happens:** if a live call fails (auth error, timeout, 5xx) the client
-  **silently returns fabricated fixture data** instead of surfacing the error.
-- **Risk:** while testing in production you may believe you are looking at real
-  data when you are actually looking at fixtures — and a real outage stays
-  invisible. This is explicitly a forbidden pattern under the Mock/Live Signal
-  standard.
-- **In-app safeguard:** the navbar chip / `mock` flag reflect **configuration**
-  (is `CONDUCTOR_URL` set), **not** whether the last call actually succeeded —
-  so they do **not** catch this case.
-- **Before you test:** cross-check with `GET /api/v1/health/deep` →
-  `checks.conductor`; if it reports an error while the UI still shows data, the
-  data is fabricated. Recommended fix: make the live path surface the error
-  instead of falling back silently.
-
-### M2. SOQL built by string interpolation
+### M1. SOQL built by string interpolation
 - **Where:** `app/sf_provider.py` — `find_person_by_sis_id`,
   `find_person_by_guid`, `find_duplicate_accounts`. Used by the Salesforce
   Console and the Correlation Tracer.
@@ -177,15 +154,14 @@ production impact.
 
 ## Safer production-testing checklist
 
-1. Confirm the navbar shows the green **LIVE** chip and the banner is visible —
-   you know you are no longer on fixtures.
-2. Leave digest delivery disabled: `SMTP_*`, `DIGEST_EMAIL_TO`,
+1. Leave digest delivery disabled: `SMTP_*`, `DIGEST_EMAIL_TO`,
    `GCHAT_WEBHOOK_URL` unset (H2).
-3. Point `DATABASE_URL` at the companion's own DB, not a production DB (L2).
-4. Set a real `SECRET_KEY` (L1).
-5. Read-only surfaces first — Search, Workers, Diff, Digest view, Traces — to
-   confirm connectivity before touching any write surface.
-6. For any CRITICAL action, test against a single known-safe record before
+2. Point `DATABASE_URL` at the companion's own DB, not a production DB (L2).
+3. Set a real `SECRET_KEY` (L1).
+4. Read-only surfaces first — Search, Workers, Diff, Digest view, Traces — to
+   confirm connectivity. If a tab shows an error, Conductor is unreachable;
+   the app will not hide that behind fabricated data.
+5. For any CRITICAL action, test against a single known-safe record before
    doing anything in bulk.
-7. If the UI shows data but `/api/v1/health/deep` reports a Conductor error,
-   stop — you are looking at silent mock fallback (M1).
+6. Read each confirmation dialog before accepting it — it names the exact
+   action and its production impact.

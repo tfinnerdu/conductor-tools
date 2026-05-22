@@ -31,44 +31,36 @@ class TestConfigured:
         assert ethos_provider._configured() is True
 
 
-class TestGetPersonMockMode:
-    def test_returns_dict_with_content_key(self, monkeypatch):
+class TestGetPersonNotConfigured:
+    def test_raises_when_not_configured(self, monkeypatch):
         monkeypatch.delenv("ETHOS_URL", raising=False)
         monkeypatch.delenv("ETHOS_API_KEY", raising=False)
         from app import ethos_provider
-        result = ethos_provider.get_person("test-guid-1234")
-        assert isinstance(result, dict)
-        assert "content" in result
-        assert "id" in result
-        assert result["id"] == "test-guid-1234"
+        with pytest.raises(RuntimeError):
+            ethos_provider.get_person("some-guid")
 
-    def test_mock_person_has_names(self, monkeypatch):
-        monkeypatch.delenv("ETHOS_URL", raising=False)
+    def test_raises_when_only_url(self, monkeypatch):
+        monkeypatch.setenv("ETHOS_URL", "https://ethos.example.com")
         monkeypatch.delenv("ETHOS_API_KEY", raising=False)
         from app import ethos_provider
-        result = ethos_provider.get_person("abc-guid")
-        names = result["content"]["names"]
-        assert isinstance(names, list)
-        assert len(names) > 0
-        assert "firstName" in names[0]
+        with pytest.raises(RuntimeError):
+            ethos_provider.get_person("abc-guid")
 
-    def test_mock_person_has_emails(self, monkeypatch):
+    def test_raises_when_only_key(self, monkeypatch):
         monkeypatch.delenv("ETHOS_URL", raising=False)
-        monkeypatch.delenv("ETHOS_API_KEY", raising=False)
+        monkeypatch.setenv("ETHOS_API_KEY", "test-key")
         from app import ethos_provider
-        result = ethos_provider.get_person("any-guid")
-        emails = result["content"]["emails"]
-        assert isinstance(emails, list)
-        assert len(emails) > 0
-        assert "address" in emails[0]
-        assert "doane.edu" in emails[0]["address"]
+        with pytest.raises(RuntimeError):
+            ethos_provider.get_person("any-guid")
 
-    def test_resource_field(self, monkeypatch):
+    def test_raises_before_any_request(self, monkeypatch):
         monkeypatch.delenv("ETHOS_URL", raising=False)
         monkeypatch.delenv("ETHOS_API_KEY", raising=False)
         from app import ethos_provider
-        result = ethos_provider.get_person("test-guid")
-        assert result["resource"] == "persons"
+        with patch("app.ethos_provider.requests.get") as mock_get:
+            with pytest.raises(RuntimeError):
+                ethos_provider.get_person("test-guid")
+            mock_get.assert_not_called()
 
 
 class TestGetPersonLivePath:
@@ -86,18 +78,16 @@ class TestGetPersonLivePath:
             mock_get.assert_called_once()
             assert result["id"] == "live-guid"
 
-    def test_live_failure_falls_back_to_mock(self, monkeypatch):
+    def test_live_failure_propagates(self, monkeypatch):
         monkeypatch.setenv("ETHOS_URL", "https://ethos.example.com")
         monkeypatch.setenv("ETHOS_API_KEY", "test-key")
         from app import ethos_provider
 
         with patch("app.ethos_provider.requests.get", side_effect=Exception("connection refused")):
-            result = ethos_provider.get_person("fallback-guid")
-            # Should fall back to mock data
-            assert isinstance(result, dict)
-            assert "content" in result
+            with pytest.raises(Exception):
+                ethos_provider.get_person("fallback-guid")
 
-    def test_live_http_error_falls_back(self, monkeypatch):
+    def test_live_http_error_propagates(self, monkeypatch):
         monkeypatch.setenv("ETHOS_URL", "https://ethos.example.com")
         monkeypatch.setenv("ETHOS_API_KEY", "test-key")
         from app import ethos_provider
@@ -107,8 +97,8 @@ class TestGetPersonLivePath:
         mock_resp.raise_for_status.side_effect = req_lib.HTTPError("404")
 
         with patch("app.ethos_provider.requests.get", return_value=mock_resp):
-            result = ethos_provider.get_person("http-error-guid")
-            assert "content" in result
+            with pytest.raises(req_lib.HTTPError):
+                ethos_provider.get_person("http-error-guid")
 
 
 class TestIngestEvent:
@@ -261,20 +251,19 @@ class TestCheckHealth:
 
 
 class TestSearchPersons:
-    def test_mock_mode_returns_list(self, monkeypatch):
+    def test_raises_when_not_configured(self, monkeypatch):
         monkeypatch.delenv("ETHOS_URL", raising=False)
         monkeypatch.delenv("ETHOS_API_KEY", raising=False)
         from app import ethos_provider
-        results = ethos_provider.search_persons("Alex")
-        assert isinstance(results, list)
-        assert len(results) > 0
+        with pytest.raises(RuntimeError):
+            ethos_provider.search_persons("Alex")
 
-    def test_mock_mode_respects_limit(self, monkeypatch):
+    def test_raises_when_not_configured_with_limit(self, monkeypatch):
         monkeypatch.delenv("ETHOS_URL", raising=False)
         monkeypatch.delenv("ETHOS_API_KEY", raising=False)
         from app import ethos_provider
-        results = ethos_provider.search_persons("test", limit=2)
-        assert len(results) <= 2
+        with pytest.raises(RuntimeError):
+            ethos_provider.search_persons("test", limit=2)
 
     def test_live_success(self, monkeypatch):
         monkeypatch.setenv("ETHOS_URL", "https://ethos.example.com")
@@ -289,11 +278,11 @@ class TestSearchPersons:
             results = ethos_provider.search_persons("Smith")
             assert len(results) == 2
 
-    def test_live_failure_falls_back(self, monkeypatch):
+    def test_live_failure_propagates(self, monkeypatch):
         monkeypatch.setenv("ETHOS_URL", "https://ethos.example.com")
         monkeypatch.setenv("ETHOS_API_KEY", "test-key")
         from app import ethos_provider
 
         with patch("app.ethos_provider.requests.get", side_effect=Exception("fail")):
-            results = ethos_provider.search_persons("Smith")
-            assert isinstance(results, list)
+            with pytest.raises(Exception):
+                ethos_provider.search_persons("Smith")
