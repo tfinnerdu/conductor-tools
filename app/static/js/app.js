@@ -115,6 +115,54 @@ async function apiDelete(url) {
 }
 
 // ---------------------------------------------------------------------------
+// Mock/Live environment signal
+// ---------------------------------------------------------------------------
+
+// Populated from /api/v1/health/deep. mock === null means "not yet known".
+window.ConductorEnv = { mock: null };
+
+// True only when live (non-mock) mode has been positively confirmed.
+function isLiveConductor() {
+    return window.ConductorEnv.mock === false;
+}
+
+// Drives the MOCK/LIVE navbar chip, the live-environment banner, and the
+// per-section destructive-action warnings. Called once the readiness probe
+// resolves (see base.html).
+function applyConductorEnvSignals(isMock) {
+    window.ConductorEnv.mock = !!isMock;
+    const live = !isMock;
+
+    const mockChip = document.getElementById('mock-mode-chip');
+    const liveChip = document.getElementById('live-mode-chip');
+    const banner = document.getElementById('env-warning-banner');
+
+    if (mockChip) mockChip.classList.toggle('d-none', live);
+    if (liveChip) liveChip.classList.toggle('d-none', !live);
+    if (banner) banner.classList.toggle('d-none', !live);
+
+    // Per-section destructive-action warnings show only against a live Conductor.
+    document.querySelectorAll('.live-warning').forEach(function (el) {
+        el.classList.toggle('d-none', !live);
+    });
+}
+
+// Confirmation guard for destructive actions. Against a live Conductor the
+// prompt spells out the production impact; mock mode keeps a lightweight
+// confirm so the flow is still exercised. Unknown env is treated as live.
+function confirmDestructive(action, impact) {
+    if (window.ConductorEnv.mock === true) {
+        return confirm(action + '?');
+    }
+    return confirm(
+        '⚠ LIVE ENVIRONMENT\n\n' +
+        action + '\n\n' +
+        impact + '\n\n' +
+        'This affects real production data and cannot be undone here. Continue?'
+    );
+}
+
+// ---------------------------------------------------------------------------
 // Utility helpers
 // ---------------------------------------------------------------------------
 

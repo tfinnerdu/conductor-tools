@@ -187,6 +187,13 @@
                 <div class="console-card">
                     <div class="console-card-header">Test Configuration</div>
 
+                    <div class="live-warning d-none">
+                      In live mode &ldquo;Run Test&rdquo; calls Conductor's
+                      workflow test endpoint. Any task reference left without a
+                      mock falls through to a real worker &mdash; supply a mock
+                      for every task to keep the run side-effect free.
+                    </div>
+
                     <div class="form-group">
                         <label class="form-label">Workflow</label>
                         <select id="th-workflow-select" class="form-control">
@@ -302,6 +309,13 @@
      MIGRATIONS TAB
      ============================================================ -->
 <div id="panel-migrations" class="tab-panel">
+
+    <div class="live-warning d-none">
+      &ldquo;Retry Failures&rdquo; re-runs every FAILED workflow execution in the
+      batch against the live Conductor. Re-running a workflow re-triggers its
+      task side effects &mdash; Salesforce upserts, Colleague writes, and
+      notifications all fire again.
+    </div>
 
     <div class="grid-2" style="align-items:start">
 
@@ -427,6 +441,12 @@
      RECONCILER TAB
      ============================================================ -->
 <div id="panel-reconciler" class="tab-panel">
+
+    <div class="live-warning d-none">
+      &ldquo;Retry All&rdquo; and &ldquo;Bulk Retry Selected&rdquo; re-run failed
+      workflow executions against the live Conductor &mdash; up to 500 at once.
+      Each retry re-triggers that workflow's real task side effects.
+    </div>
 
     <div class="console-card">
         <div class="console-card-header">
@@ -586,6 +606,11 @@
 <div id="panel-settings" class="tab-panel">
   <div class="console-card mb-2">
     <div class="console-card-header">Conductor Secrets</div>
+    <div class="live-warning d-none">
+      Adding, updating, or deleting a secret here writes directly to the
+      production Conductor secret store. Every workflow that references the
+      secret picks up the change immediately &mdash; there is no undo.
+    </div>
     <!-- Add Secret form -->
     <form id="add-secret-form" class="form-inline mb-1" style="display:flex;gap:0.5rem;flex-wrap:wrap">
       <input type="text" id="new-secret-name" class="form-control" placeholder="Secret name" style="max-width:200px" required />

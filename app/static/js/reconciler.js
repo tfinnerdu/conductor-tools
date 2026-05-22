@@ -199,6 +199,11 @@ async function bulkRetry(workflowIds) {
         showToast('No executions selected', 'warning');
         return;
     }
+    if (!confirmDestructive(
+        'Retry ' + workflowIds.length + ' failed workflow execution' +
+            (workflowIds.length === 1 ? '' : 's'),
+        'Each retry re-runs the workflow and re-triggers its real task side effects.'
+    )) return;
 
     const btn = document.getElementById('reconciler-bulk-retry-btn');
     if (btn) { btn.disabled = true; btn.textContent = 'Retrying...'; }

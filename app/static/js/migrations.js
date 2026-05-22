@@ -74,7 +74,10 @@
     };
 
     window.retryFailures = async function (batchId) {
-        if (!confirm('Retry all FAILED executions in this batch?')) return;
+        if (!confirmDestructive(
+            'Retry all FAILED executions in this batch',
+            'Every failed workflow re-runs against Conductor and re-triggers its task side effects.'
+        )) return;
         try {
             const result = await apiFetch('/api/v1/batches/' + batchId + '/retry-failures', { method: 'POST' });
             showToast('Retried ' + result.retriedCount + ' workflows' +

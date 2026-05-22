@@ -597,3 +597,63 @@ Two endpoints exist. Wire only the live-safe one to Pingdom / Uptime Kuma.
 1. Click the **Refresh** button in the Digest tab.
 
 **Expected outcome:** The digest regenerates and the "Generated:" timestamp updates to the current time.
+
+---
+
+## 11. Mock/Live Signal & Production-Safety Warnings
+
+These checks verify the app correctly signals whether it is on fixture data or a real Conductor, and that destructive surfaces are guarded in live mode. See `warning.md` for the full list of caustic operations.
+
+### 11a. Mock-mode signals
+
+**Goal:** Confirm the app advertises mock mode when `CONDUCTOR_URL` is unset.
+
+**Steps:**
+
+1. Ensure `CONDUCTOR_URL` is empty/unset in `.env`, then start the app.
+2. Open `http://localhost:5000` and look at the navigation bar.
+3. Run `curl.exe -s -i http://localhost:5000/api/v1/health` and read the response headers.
+
+**Expected outcome:**
+
+- An amber **MOCK** chip is visible in the navbar; no green LIVE chip.
+- No live-environment banner appears across the top of the page.
+- The response includes the header `X-Mock-Mode: true`.
+
+### 11b. Live-mode signals
+
+**Goal:** Confirm the app advertises live mode when `CONDUCTOR_URL` is set.
+
+**Steps:**
+
+1. Set `CONDUCTOR_URL` to a real Conductor URL in `.env` and restart the app.
+2. Open `http://localhost:5000` and look at the navigation bar and top of page.
+3. Run `curl.exe -s -i http://localhost:5000/api/v1/health` and read the response headers.
+
+**Expected outcome:**
+
+- A green **LIVE** chip is visible in the navbar; no amber MOCK chip.
+- An amber **LIVE environment** banner appears across the top of the page.
+- The response does **not** include an `X-Mock-Mode` header.
+
+### 11c. Per-section live warnings
+
+**Goal:** Confirm destructive tabs show inline warnings in live mode.
+
+**Steps:**
+
+1. With the app in live mode (11b), open the Settings, Reconciler, and Migrations tabs, plus the JQ Lab → Test Harness sub-tab, in turn.
+
+**Expected outcome:** each of the four surfaces shows an inline **⚠ LIVE** warning callout describing the production impact. In mock mode (11a) none of these callouts appear.
+
+### 11d. Destructive-action confirmation
+
+**Goal:** Confirm destructive buttons require confirmation in live mode.
+
+**Steps:**
+
+1. With the app in live mode, go to Settings and click **Delete** on a secret — then cancel the dialog.
+2. Go to Migrations, open a batch, and click **Retry Failures** — then cancel the dialog.
+3. Go to Reconciler, select a failure group, and click **Bulk Retry Selected** — then cancel the dialog.
+
+**Expected outcome:** each click raises a confirmation dialog that names the action and its production impact. Cancelling the dialog performs no action. (In mock mode the same buttons show only a short confirmation.)

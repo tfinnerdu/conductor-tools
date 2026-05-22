@@ -10,7 +10,20 @@ Open your browser and navigate to `http://localhost:5007` (or the network URL pr
 
 The orange Doane top bar shows the app name and current version number. Below it, the navy navigation bar has nine tabs. Click any tab to switch to it. The app does not reload between tabs — everything runs in the same page.
 
-**Mock mode:** If Conductor is unreachable or `CONDUCTOR_URL` is not set, the app returns realistic demo data automatically. You can explore every feature without a live Conductor connection. A badge in the health endpoint indicates when mock mode is active.
+**Mock mode:** If `CONDUCTOR_URL` is not set, the app returns realistic demo data automatically. You can explore every feature without a live Conductor connection. See the next section for how the app tells you which mode you are in.
+
+---
+
+## Mock Mode and Live Mode
+
+Conductor Companion runs in one of two modes, decided by whether `CONDUCTOR_URL` points at a real Conductor instance.
+
+- **Mock mode** — `CONDUCTOR_URL` is unset. Every tab returns realistic demo data so you can explore the whole app without a live connection. The navigation bar shows an amber **MOCK** chip.
+- **Live mode** — `CONDUCTOR_URL` points at a real Conductor. Every action runs against that instance for real. The navigation bar shows a green **LIVE** chip, and an amber warning banner appears across the top of the page.
+
+**Destructive-action warnings.** In live mode, the tabs that can change real data — Settings, Reconciler, Migrations, and the Test Harness — display an inline **⚠ LIVE** warning callout. The buttons that perform those actions also raise a confirmation dialog that describes the production impact before anything runs. In mock mode the same buttons show only a brief confirmation, since nothing is actually changed.
+
+If you are about to test against production, read `warning.md` in the repository root first. It lists every operation that can have a detrimental effect on a live environment and how to test it safely.
 
 ---
 
@@ -414,11 +427,11 @@ Lists every secret name in Conductor with a usage count and Delete button. Click
 - **Secret Name** — the key name (e.g. `PAYMENT_API_KEY`). If it already exists, its value is overwritten.
 - **Secret Value** — displayed as a password field. Never shown again after saving.
 
-Click **Add / Update**.
+Click **Add / Update**. In live mode a confirmation dialog appears first — saving a secret writes straight to the production Conductor secret store.
 
 ### Deleting a Secret
 
-Click **Delete** next to any secret. Check usage first — any active workflow referencing the secret will fail at runtime until it is re-added.
+Click **Delete** next to any secret. Check usage first — any active workflow referencing the secret will fail at runtime until it is re-added. In live mode a confirmation dialog spells out this impact before the secret is removed.
 
 ---
 

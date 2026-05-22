@@ -62,7 +62,10 @@ async function showUsages(name) {
 }
 
 async function deleteSecret(name) {
-    if (!confirm(`Delete secret "${name}"? This cannot be undone.`)) return;
+    if (!confirmDestructive(
+        `Delete secret "${name}"`,
+        'Workflows that reference this secret will fail until it is recreated.'
+    )) return;
     try {
         await apiDelete(`/api/v1/secrets/${encodeURIComponent(name)}`);
         showToast(`Secret "${name}" deleted`, 'success');
@@ -77,6 +80,10 @@ async function handleAddSecret(e) {
     const name = document.getElementById('new-secret-name').value.trim();
     const value = document.getElementById('new-secret-value').value;
     if (!name) return;
+    if (!confirmDestructive(
+        `Save secret "${name}" to Conductor`,
+        'This creates or overwrites the secret value used by live workflows.'
+    )) return;
     try {
         await apiPost(`/api/v1/secrets/${encodeURIComponent(name)}`, { value });
         showToast(`Secret "${name}" saved`, 'success');
