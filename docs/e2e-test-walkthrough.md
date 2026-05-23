@@ -8,7 +8,7 @@ Organized by feature surface. For each feature, follow the manual steps and veri
 
 - App running locally: `python -u run.py`
 - App reachable at `http://localhost:5000`
-- A live Conductor instance configured via `CONDUCTOR_URL` in `.env`. The app has no mock mode — tabs show errors if Conductor is unreachable.
+- Either a live Conductor configured via `CONDUCTOR_URL` in `.env`, OR `SHOW_MOCK=1` in `.env` for offline fixture mode. By default the app makes real calls and tabs show errors if Conductor is unreachable.
 
 ---
 
@@ -83,7 +83,7 @@ Two endpoints exist. Wire only the live-safe one to Pingdom / Uptime Kuma.
 ```
 
 - `db.ok` confirms a live database `SELECT 1` round-trip succeeded.
-- `conductor.detail` is `"reachable"` with a live instance. There is no mock mode — when `CONDUCTOR_URL` is unset the conductor check reports `"detail": "not_configured"`, `"ok": false`.
+- `conductor.detail` is `"reachable"` with a live instance, `"mock_mode"` when `SHOW_MOCK=1`, or `"not_configured"` (with `"ok": false`) when `CONDUCTOR_URL` is unset and mock mode is off.
 - Returns HTTP 503 with `"status": "degraded"` if either check fails.
 - **Do not wire this endpoint to Pingdom or any automated monitor.**
 
@@ -600,33 +600,48 @@ Two endpoints exist. Wire only the live-safe one to Pingdom / Uptime Kuma.
 
 ---
 
-## 11. Production-Safety Surfaces
+## 11. Production-Safety Surfaces and Mock Mode
 
-The app always acts on the real Conductor — there is no mock mode. These checks verify the production-safety banner, the per-section warnings, and the confirmation dialogs. See `warning.md` for the catalogue of caustic operations.
+These checks verify the production-safety banner, the per-section warnings, the confirmation dialogs, and the SHOW_MOCK opt-in. See `warning.md` for the catalogue of caustic operations.
 
-### 11a. Production-safety banner
+### 11a. Default mode — production-safety banner and warnings visible
 
-**Goal:** Confirm the standing banner is shown.
-
-**Steps:**
-
-1. Start the app and open `http://localhost:5000`.
-
-**Expected outcome:** an amber banner across the top of the page reads "This console acts on a real Conductor…" and references `warning.md`. It is present on every tab.
-
-### 11b. Per-section destructive-action warnings
-
-**Goal:** Confirm the destructive tabs show inline warnings.
+**Goal:** With `SHOW_MOCK` unset, confirm the safety surfaces are visible.
 
 **Steps:**
 
-1. Open the Settings, Reconciler, and Migrations tabs, plus the JQ Lab → Test Harness sub-tab, in turn.
+1. Ensure `SHOW_MOCK` is unset in `.env`. Start the app and open `http://localhost:5000`.
+2. Open the Settings, Reconciler, Migrations tabs, and the JQ Lab → Test Harness sub-tab.
+3. Run `curl.exe -s -i http://localhost:5000/api/v1/health` and read the headers.
 
-**Expected outcome:** each of the four surfaces shows an inline **⚠** warning callout describing the production impact of its actions.
+**Expected outcome:**
+
+- No MOCK chip in the navbar.
+- An amber banner across the top of the page reads "This console acts on a real Conductor…" and references `warning.md`. It is present on every tab.
+- Each of the four destructive surfaces shows an inline **⚠** warning callout.
+- The response does NOT include an `X-Mock-Mode` header.
+
+### 11b. SHOW_MOCK mode — fixtures and MOCK signals
+
+**Goal:** With `SHOW_MOCK=1`, confirm fixture data is returned and the MOCK signals appear.
+
+**Steps:**
+
+1. Set `SHOW_MOCK=1` in `.env` and restart the app.
+2. Open `http://localhost:5000` and look at the navbar and top of page.
+3. Run `curl.exe -s -i http://localhost:5000/api/v1/health` and read the headers.
+4. Run `curl.exe -s http://localhost:5000/api/v1/secrets`.
+
+**Expected outcome:**
+
+- An amber **MOCK** chip is visible in the navbar.
+- The production-safety banner is hidden; the per-section **⚠** callouts are hidden.
+- The response includes the header `X-Mock-Mode: true`.
+- The secrets list returns a fixture array (e.g. `PAYMENT_API_KEY`, `EMAIL_SERVICE_SECRET`, …) — no live call was made.
 
 ### 11c. Confirmation on state-changing actions
 
-**Goal:** Confirm every state-changing action requires confirmation.
+**Goal:** Confirm every state-changing action requires confirmation (in both modes).
 
 **Steps:**
 
@@ -637,13 +652,13 @@ The app always acts on the real Conductor — there is no mock mode. These check
 
 **Expected outcome:** every one of these raises a confirmation dialog naming the action and its impact. Cancelling performs no action; the request is sent only on accept.
 
-### 11d. Errors surface instead of fake data
+### 11d. Errors surface instead of fake data (default mode)
 
-**Goal:** Confirm an unreachable Conductor produces a visible error, not fabricated data.
+**Goal:** With `SHOW_MOCK` unset, confirm an unreachable Conductor produces a visible error, not fabricated data.
 
 **Steps:**
 
-1. Set `CONDUCTOR_URL` to an unreachable address (or leave it unset) and restart.
+1. With `SHOW_MOCK` unset, set `CONDUCTOR_URL` to an unreachable address and restart.
 2. Open the Search or Workers tab and run a query.
 
-**Expected outcome:** the tab shows an error message. The app never substitutes demo or fixture data.
+**Expected outcome:** the tab shows an error message. The app never substitutes fixture data unless `SHOW_MOCK` is explicitly set.

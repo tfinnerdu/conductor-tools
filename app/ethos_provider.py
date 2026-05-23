@@ -4,9 +4,10 @@
   Real path      — calls the Ethos REST API
   TODO markers   — every guessed field name flagged with # TODO(ethos):
 
-Requires live Ethos credentials. There is no mock fallback — when Ethos is not
-configured, or an API call fails, the error propagates to the caller so it
-surfaces in the UI rather than being masked by fixture data.
+By default this provider makes real Ethos calls — if credentials are not
+configured, calls raise RuntimeError. Setting SHOW_MOCK=1 in the environment
+flips reads to return realistic mock fixtures instead, for offline testing.
+SHOW_MOCK is an EXPLICIT, opt-in flag — never an error-recovery path.
 
 Identity translation via resolve_identity() at the boundary.
 """
@@ -17,23 +18,23 @@ from datetime import datetime, timezone
 
 import requests
 
-# In-memory ring buffer for incoming Ethos change events
+from app.utils.env import show_mock
+
+# In-memory ring buffer for incoming Ethos change events.
 # Shared with the Correlation Tracer — both apps read/write this buffer.
 # In production, replace with a shared DB table (ethos_events).
 _event_buffer: deque = deque(maxlen=500)
 
 
 def _configured() -> bool:
-    """Return True when Ethos credentials are present in environment."""
     return bool(os.environ.get("ETHOS_URL") and os.environ.get("ETHOS_API_KEY"))
 
 
 def _require_configured() -> None:
-    """Raise a clear error when Ethos credentials are not configured."""
     if not _configured():
         raise RuntimeError(
-            "Ethos is not configured — set ETHOS_URL and ETHOS_API_KEY. "
-            "This service has no mock fallback."
+            "Ethos is not configured — set ETHOS_URL and ETHOS_API_KEY, "
+            "or enable SHOW_MOCK for fixture data."
         )
 
 
@@ -58,6 +59,8 @@ def get_person(guid: str) -> dict:
     Real path: GET {ETHOS_URL}/api/persons/{guid}
     Returns Ethos EEDM persons v16 shape.
     """
+    if show_mock():
+        return _mock_person(guid)
     _require_configured()
     resp = requests.get(
         f"{os.environ['ETHOS_URL']}/api/persons/{guid}",
@@ -71,8 +74,8 @@ def get_person(guid: str) -> dict:
 def get_recent_events(resource: str = "persons", limit: int = 50) -> list:
     """Return recent bus events for a resource type from the in-memory buffer.
 
-    The buffer is populated by the ingest_event webhook — this is real
-    captured data, not a mock fixture.
+    The buffer is populated by the ingest_event webhook — real captured data,
+    not fixtures, so SHOW_MOCK is irrelevant here.
     # TODO(ethos): replace with DB query once ethos_events table is live
     """
     events = [e for e in _event_buffer if e.get("resource") == resource]
@@ -80,11 +83,7 @@ def get_recent_events(resource: str = "persons", limit: int = 50) -> list:
 
 
 def ingest_event(event: dict) -> None:
-    """Ingest an Ethos change notification event into the buffer.
-
-    Called by the /api/v1/ethos/events POST webhook when Ethos publishes
-    a change notification. Thread-safe deque append.
-    """
+    """Ingest an Ethos change notification event into the buffer."""
     event["received_at"] = datetime.now(timezone.utc).isoformat()
     _event_buffer.append(event)
 
@@ -92,9 +91,10 @@ def ingest_event(event: dict) -> None:
 def search_persons(query: str, limit: int = 20) -> list:
     """Search Ethos for persons matching a query string.
 
-    Real path: GET {ETHOS_URL}/api/persons?criteria={...}
     # TODO(ethos): confirm criteria param name and JSON filter shape
     """
+    if show_mock():
+        return _mock_person_search(query, limit)
     _require_configured()
     resp = requests.get(
         f"{os.environ['ETHOS_URL']}/api/persons",
@@ -107,11 +107,7 @@ def search_persons(query: str, limit: int = 20) -> list:
 
 
 def check_health() -> dict:
-    """Probe Ethos API availability.  Read-only, safe for health checks.
-
-    Returns a clear ``not_configured`` status when credentials are absent;
-    this is a health signal, not fabricated person data.
-    """
+    """Probe Ethos API availability.  Read-only, safe for health checks."""
     if not _configured():
         return {"ok": True, "detail": "not_configured", "latency_ms": None}
 
@@ -132,3 +128,36 @@ def check_health() -> dict:
         return {"ok": False, "latency_ms": round((time.time() - t0) * 1000), "detail": "timeout"}
     except Exception as exc:
         return {"ok": False, "latency_ms": round((time.time() - t0) * 1000), "detail": str(exc)[:120]}
+
+
+# ---------------------------------------------------------------------------
+# Mock fixtures — used only when SHOW_MOCK is enabled
+# ---------------------------------------------------------------------------
+
+def _mock_person(guid: str) -> dict:
+    return {
+        "id": guid,  # TODO(ethos): confirm top-level GUID field name
+        "content": {
+            "names": [  # TODO(ethos): confirm names array structure
+                {
+                    "firstName": "Alex",
+                    "lastName": "Student",
+                    "fullName": "Alex Student",
+                    "preference": "preferred",
+                }
+            ],
+            "credentials": [  # TODO(ethos): confirm credentials array structure
+                {"type": {"credentialType": "colleaguePersonId"}, "value": "STU" + guid[-6:].upper().replace("-", "0")},
+            ],
+            "emails": [  # TODO(ethos): confirm emails array structure
+                {"address": "alex.student@doane.edu", "preference": "primary"},
+            ],
+            "phones": [],
+        },
+        "resource": "persons",
+        "operation": "updated",
+    }
+
+
+def _mock_person_search(query: str, limit: int) -> list:
+    return [_mock_person(f"mock-guid-{i:04d}") for i in range(min(limit, 5))]

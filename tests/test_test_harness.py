@@ -10,6 +10,7 @@ import pytest
 
 def _make_mock_conductor_th():
     mock = MagicMock()
+    mock._mock = False  # exercise the live POST branch in run_test
     mock.base_url = "http://conductor.test"
     mock.get_headers.return_value = {}
 

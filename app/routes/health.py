@@ -18,6 +18,7 @@ import uuid
 from flask import Blueprint, current_app, jsonify, redirect
 
 from app.health_checks import functional_checks
+from app.utils.env import show_mock
 
 health_bp = Blueprint("health", __name__)
 
@@ -43,6 +44,7 @@ def health_deep():
     uptime = int(time.time() - start_time)
     request_id = str(uuid.uuid4())
 
+    mock = show_mock()
     checks = functional_checks()
     status = "ok" if checks["ok"] else "degraded"
 
@@ -52,6 +54,7 @@ def health_deep():
             "type": "functional",
             "request_id": request_id,
             "status": status,
+            "mock": mock,
             "checks": {k: v["ok"] for k, v in checks["checks"].items()},
         },
     )
@@ -61,6 +64,7 @@ def health_deep():
         "service": "conductor-companion",
         "version": current_app.config.get("SERVICE_VERSION", "1.0.0"),
         "uptime_seconds": uptime,
+        "mock": mock,
         "request_id": request_id,
         "checks": checks["checks"],
     }), (200 if checks["ok"] else 503)

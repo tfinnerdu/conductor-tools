@@ -10,17 +10,22 @@ Open your browser and navigate to `http://localhost:5007` (or the network URL pr
 
 The orange Doane top bar shows the app name and current version number. Below it, the navy navigation bar has nine tabs. Click any tab to switch to it. The app does not reload between tabs — everything runs in the same page.
 
-**Connecting to Conductor:** Set `CONDUCTOR_URL` to your Conductor instance. The app has no demo or mock mode — every tab calls the real Conductor. See the next section.
+**Connecting to Conductor:** Set `CONDUCTOR_URL` to your Conductor instance. By default the app makes real calls; if Conductor is unreachable a tab shows an error rather than fabricated data. See the next section for the opt-in mock mode.
 
 ---
 
-## Production Safety
+## Production Safety and Mock Mode
 
-Conductor Companion always acts on the real Conductor that `CONDUCTOR_URL` points at. There is no demo or mock mode: if Conductor is unreachable, a tab shows an error rather than fabricated data.
+By default Conductor Companion acts on the real Conductor that `CONDUCTOR_URL` points at — there is no silent fallback to fixture data. A standing banner across the top of every page reminds you of this, and the destructive tabs (Settings, Reconciler, Migrations, Test Harness) show an inline **⚠** warning callout.
 
-A standing banner across the top of every page reminds you that the console acts on a real Conductor.
+**Mock mode (opt-in).** Set `SHOW_MOCK=1` in `.env` (or any of `true`/`yes`/`on`) to flip the app into fixture mode for offline testing. It is **all-or-nothing**: every integration returns fixture data together; there is no per-integration override. When mock mode is on:
 
-**Confirmation dialogs.** Every action that changes state — saving or deleting a secret, retrying workflows, creating a batch, running a test, saving a search, expression, or preset — raises a confirmation dialog that names the action and its impact before it runs. The destructive tabs (Settings, Reconciler, Migrations, Test Harness) also show an inline **⚠** warning callout.
+- The navbar shows an amber **MOCK** chip.
+- API responses carry an `X-Mock-Mode: true` header.
+- `GET /api/v1/health/deep` reports `"mock": true`.
+- The production-safety banner and inline warnings are hidden — actions are simulations.
+
+**Confirmation dialogs.** Every action that changes state — saving or deleting a secret, retrying workflows, creating a batch, running a test, saving a search, expression, or preset — raises a confirmation dialog that names the action and its impact before it runs. Confirmations are on in both modes so the flow stays exercised in mock mode.
 
 Before testing against production, read `warning.md` in the repository root. It lists every operation that can have a detrimental effect on a live environment and how to test it safely.
 
@@ -438,7 +443,7 @@ Click **Delete** next to any secret. Check usage first — any active workflow r
 
 ### Conductor
 
-Set `CONDUCTOR_URL` in `.env`. If `CONDUCTOR_API_KEY` is set, it is sent as `X-Authorization` on every request. There is no mock fallback — if Conductor is unreachable, requests surface an error.
+Set `CONDUCTOR_URL` in `.env`. If `CONDUCTOR_API_KEY` is set, it is sent as `X-Authorization` on every request. There is no silent mock fallback — if Conductor is unreachable, requests surface an error. To work offline against fixtures, set `SHOW_MOCK=1`; see "Production Safety and Mock Mode" above.
 
 ### Salesforce
 

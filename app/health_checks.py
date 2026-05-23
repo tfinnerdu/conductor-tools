@@ -19,6 +19,7 @@ import requests
 # app.health_checks.ConductorClient directly without chasing lazy imports.
 from app import db
 from app.conductor_client import ConductorClient
+from app.utils.env import show_mock
 
 
 def check_conductor_live() -> dict:
@@ -27,6 +28,9 @@ def check_conductor_live() -> dict:
     Safe for frequent polling — read-only, no side effects.
     Returns {ok, latency_ms, detail}.
     """
+    if show_mock():
+        return {"ok": True, "detail": "mock_mode", "latency_ms": None}
+
     base_url = os.environ.get("CONDUCTOR_URL", "").rstrip("/")
     if not base_url:
         return {"ok": False, "detail": "not_configured", "latency_ms": None}
@@ -75,10 +79,15 @@ def check_db() -> dict:
 def check_conductor_functional() -> dict:
     """Functional Conductor check: fetch workflow definitions (real API call).
 
-    CI/deep-check only. Conductor is a critical dependency — when CONDUCTOR_URL
-    is not configured this reports ok=False so /api/v1/health/deep returns 503.
+    CI/deep-check only. With SHOW_MOCK enabled, returns ok=True without
+    hitting the network. Otherwise Conductor is a critical dependency — when
+    CONDUCTOR_URL is not configured this reports ok=False so
+    /api/v1/health/deep returns 503.
     Returns {ok, latency_ms, detail, workflow_count?}.
     """
+    if show_mock():
+        return {"ok": True, "detail": "mock_mode", "latency_ms": None}
+
     base_url = os.environ.get("CONDUCTOR_URL", "").rstrip("/")
     if not base_url:
         return {"ok": False, "detail": "not_configured", "latency_ms": None}

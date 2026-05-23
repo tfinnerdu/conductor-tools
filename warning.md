@@ -10,17 +10,24 @@ Salesforce, or Colleague.
 
 ---
 
-## No mock data — the app always hits the configured Conductor
+## Mock data is opt-in via SHOW_MOCK
 
-This service has **no mock mode and no fixture fallback**. Every tab calls the
-real Conductor, Salesforce, and Ethos. If `CONDUCTOR_URL` is unset, or an
-upstream call fails, the affected tab shows an **error** — it never substitutes
-fabricated data. A standing banner at the top of every page reminds you that
-the console acts on a real Conductor.
+By default the app makes real calls to Conductor, Salesforce, and Ethos. If an
+upstream call fails, the affected tab shows an **error** — there is no silent
+fallback to fixture data. A standing banner at the top of every page reminds
+you that the console acts on a real Conductor, and every destructive surface
+carries an inline **⚠** warning callout.
 
-Every state-changing action — including the caustic ones below — raises a
-**confirmation dialog** that names the action and its impact before it runs.
-The destructive surfaces also carry an inline **⚠** warning callout.
+Mock mode is a single, explicit, all-or-nothing toggle:
+
+| Setting | Behavior |
+|---|---|
+| `SHOW_MOCK` unset (default) | Every integration makes real calls. Errors propagate. MOCK chip hidden. Production-safety banner and inline warnings visible. |
+| `SHOW_MOCK=1` / `true` / `yes` | **Every** integration returns fixture data (no per-integration override). Amber **MOCK** chip appears in the navbar. `X-Mock-Mode: true` header on API responses. Health endpoint reports `"mock": true`. Production-safety banner and inline warnings hidden — the actions are simulations. |
+
+Every state-changing action — in either mode — raises a **confirmation
+dialog** that names the action and its impact before it runs. Confirms stay on
+in mock mode so the flow is exercised end-to-end.
 
 ---
 
@@ -154,14 +161,16 @@ The destructive surfaces also carry an inline **⚠** warning callout.
 
 ## Safer production-testing checklist
 
-1. Leave digest delivery disabled: `SMTP_*`, `DIGEST_EMAIL_TO`,
+1. Confirm `SHOW_MOCK` is **unset** and the navbar shows no MOCK chip — you
+   are on real data, not fixtures.
+2. Leave digest delivery disabled: `SMTP_*`, `DIGEST_EMAIL_TO`,
    `GCHAT_WEBHOOK_URL` unset (H2).
-2. Point `DATABASE_URL` at the companion's own DB, not a production DB (L2).
-3. Set a real `SECRET_KEY` (L1).
-4. Read-only surfaces first — Search, Workers, Diff, Digest view, Traces — to
+3. Point `DATABASE_URL` at the companion's own DB, not a production DB (L2).
+4. Set a real `SECRET_KEY` (L1).
+5. Read-only surfaces first — Search, Workers, Diff, Digest view, Traces — to
    confirm connectivity. If a tab shows an error, Conductor is unreachable;
    the app will not hide that behind fabricated data.
-5. For any CRITICAL action, test against a single known-safe record before
+6. For any CRITICAL action, test against a single known-safe record before
    doing anything in bulk.
-6. Read each confirmation dialog before accepting it — it names the exact
+7. Read each confirmation dialog before accepting it — it names the exact
    action and its production impact.

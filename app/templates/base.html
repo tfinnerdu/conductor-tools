@@ -25,6 +25,7 @@
         <span class="doane-dot"></span>Conductor Companion
     </a>
     <div class="ms-auto d-flex align-items-center gap-2">
+        <span id="mock-mode-chip" class="mc-mock-chip d-none">MOCK</span>
         <span id="version-badge" class="badge-slate" style="font-size:0.72rem;padding:0.3em 0.6em;border-radius:0.3rem;white-space:nowrap"></span>
     </div>
 </nav>
@@ -46,8 +47,8 @@
 
 <!-- ── Main content ──────────────────────────────────────────────────────── -->
 <div class="container-fluid px-3 py-3">
-    <!-- Production-safety banner — this console always acts on a real Conductor -->
-    <div id="env-warning-banner" class="env-warning-banner" role="alert">
+    <!-- Production-safety banner — hidden in SHOW_MOCK mode, revealed by app.js otherwise -->
+    <div id="env-warning-banner" class="env-warning-banner d-none" role="alert">
         <span class="env-warning-banner__icon" aria-hidden="true">&#9888;</span>
         <span>
             <strong>This console acts on a real Conductor.</strong>
@@ -88,6 +89,16 @@ document.addEventListener('DOMContentLoaded', function () {
         const el = document.getElementById('version-badge');
         if (el) el.textContent = 'v' + (data.version || '1.0.0');
     }).catch(() => {});
+
+    // SHOW_MOCK signal from readiness endpoint — toggles the MOCK chip, the
+    // production-safety banner, and per-section destructive-action warnings.
+    fetch('/api/v1/health/deep').then(r => r.json()).then(data => {
+        applyConductorEnvSignals(data.mock);
+    }).catch(() => {
+        // Readiness probe unreachable — fail safe: assume NOT mock so banner
+        // and destructive-action warnings stay visible.
+        applyConductorEnvSignals(false);
+    });
 });
 </script>
 

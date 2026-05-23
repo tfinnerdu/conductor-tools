@@ -5,8 +5,10 @@ import sys
 import time
 import uuid
 
-from flask import Flask, g
+from flask import Flask, g, request
 from flask_sqlalchemy import SQLAlchemy
+
+from app.utils.env import show_mock
 
 db = SQLAlchemy()
 
@@ -32,6 +34,14 @@ def create_app(config_override=None):
     @app.before_request
     def _set_request_id():
         g.request_id = str(uuid.uuid4())
+
+    # Mock/Live Signal standard: X-Mock-Mode header on every API response
+    # when SHOW_MOCK is enabled (the consciously-set, opt-in mock mode).
+    @app.after_request
+    def _set_mock_mode_header(response):
+        if request.path.startswith("/api/") and show_mock():
+            response.headers["X-Mock-Mode"] = "true"
+        return response
 
     # Configure structured JSON logging to stdout
     handler = logging.StreamHandler(sys.stdout)

@@ -942,6 +942,7 @@ class TestHarnessGaps:
         }
 
         with patch("app.routes.test_harness.ConductorClient") as MockClient:
+            MockClient.return_value._mock = False
             MockClient.return_value.base_url = "http://conductor.test"
             MockClient.return_value.get_headers.return_value = {}
             with patch("app.routes.test_harness.requests.post",
@@ -960,6 +961,7 @@ class TestHarnessGaps:
     def test_run_test_error(self, client_with_mock_conductor):
         """run_test returns 500 when the POST to Conductor fails."""
         with patch("app.routes.test_harness.ConductorClient") as MockClient:
+            MockClient.return_value._mock = False
             MockClient.return_value.base_url = "http://conductor.test"
             MockClient.return_value.get_headers.return_value = {}
             with patch("app.routes.test_harness.requests.post",
@@ -1005,6 +1007,7 @@ class TestHarnessGaps:
 
         task_mocks = {"fetch_ref": {"outputData": {"personId": "STU123"}}}
         with patch("app.routes.test_harness.ConductorClient") as MockClient:
+            MockClient.return_value._mock = False
             MockClient.return_value.base_url = "http://conductor.test"
             MockClient.return_value.get_headers.return_value = {}
             with patch("app.routes.test_harness.requests.post",

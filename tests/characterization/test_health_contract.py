@@ -5,14 +5,16 @@ Pins:
   - Required response keys for each endpoint
   - status value for liveness is exactly "ok" (never "healthy", never "up")
   - /api/v1/health always returns HTTP 200 (liveness invariant)
+  - /api/v1/health/deep includes "mock" key (always present; reflects SHOW_MOCK)
   - /api/v1/health/deep includes a "checks" dict
   - /api/v1/health/deep returns 503 when checks["ok"] is False
 
 If any of these assertions fail due to an intentional change, update the
 hardcoded values AND update this comment to record when and why.
-Last verified: 2026-05-22 — removed the "mock" key contract; the app no
-longer has a mock mode (all fixture/mock data was removed).
+Last verified: 2026-05-23 — restored the "mock" key contract; mock mode is
+now opt-in via SHOW_MOCK and the key always reflects the flag.
 """
+import os
 from unittest.mock import patch
 
 import pytest
@@ -27,7 +29,7 @@ KNOWN_READINESS_PATH = "/api/v1/health/deep"
 KNOWN_LIVENESS_STATUS_STRING = "ok"
 KNOWN_SERVICE_NAME = "conductor-companion"
 KNOWN_LIVENESS_REQUIRED_KEYS = {"status", "service", "version", "uptime_seconds"}
-KNOWN_READINESS_REQUIRED_KEYS = {"status", "service", "version", "uptime_seconds", "checks"}
+KNOWN_READINESS_REQUIRED_KEYS = {"status", "service", "version", "uptime_seconds", "mock", "checks"}
 
 
 class TestLivenessPathCharacterization:
@@ -161,23 +163,27 @@ class TestReadinessPathCharacterization:
             f"Got {resp.status_code}. CI gates depend on this status code."
         )
 
-    def test_readiness_has_no_mock_key_characterization(self, client):
+    def test_mock_key_reflects_show_mock_characterization(self, client):
         """
-        CONTRACT: readiness must NOT include a "mock" key. The app has no mock
-        mode — all fixture/mock data was removed. A reappearing "mock" key
-        would mean a silent-fallback path has been reintroduced.
+        CONTRACT: the readiness "mock" key reflects the SHOW_MOCK env flag.
+        Unset/false → false; set/true → true. This is the canonical Mock/Live
+        Signal standard health-endpoint signal. If this flips silently,
+        operators can't tell if they're looking at real data or fixtures.
         """
         with patch("app.routes.health.functional_checks", return_value={
             "ok": True,
             "checks": {"db": {"ok": True, "latency_ms": 1, "detail": "connected"},
                        "conductor": {"ok": True, "latency_ms": 8, "detail": "reachable"}},
         }):
-            resp = client.get(KNOWN_READINESS_PATH)
-        data = resp.get_json()
-        assert "mock" not in data, (
-            "Readiness response must not include a 'mock' key — the app has no "
-            "mock mode. A 'mock' key reappearing means silent fixture fallback "
-            "was reintroduced."
+            with patch.dict(os.environ, {"SHOW_MOCK": ""}):
+                off = client.get(KNOWN_READINESS_PATH).get_json()
+            with patch.dict(os.environ, {"SHOW_MOCK": "1"}):
+                on = client.get(KNOWN_READINESS_PATH).get_json()
+        assert off.get("mock") is False, (
+            f"mock must be False when SHOW_MOCK is unset. Got mock={off.get('mock')}."
+        )
+        assert on.get("mock") is True, (
+            f"mock must be True when SHOW_MOCK=1. Got mock={on.get('mock')}."
         )
 
 

@@ -338,7 +338,7 @@ components:
   schemas:
     DeepHealthResponse:
       type: object
-      required: [status, service, version, uptime_seconds, checks]
+      required: [status, service, version, uptime_seconds, mock, checks]
       properties:
         status:
           type: string
@@ -349,6 +349,9 @@ components:
           type: string
         uptime_seconds:
           type: integer
+        mock:
+          type: boolean
+          description: True when SHOW_MOCK is enabled (every integration returns fixture data).
         request_id:
           type: string
           format: uuid

@@ -1,9 +1,12 @@
 """Test Harness routes — /api/v1/test-harness/*
 
 Workflow Test Harness: run workflow definitions against Conductor's workflow
-test endpoint with caller-supplied task mock outputs. Requires a live
-Conductor — there is no in-process simulation fallback.
+test endpoint with caller-supplied task mock outputs. When SHOW_MOCK is
+enabled the run is simulated in-process for offline testing.
 """
+import uuid
+from datetime import datetime, timezone
+
 import requests
 
 from flask import Blueprint, current_app, jsonify, request
@@ -122,6 +125,83 @@ _BUILTIN_PRESETS = [
 
 
 # ---------------------------------------------------------------------------
+# In-process simulator (SHOW_MOCK only)
+# ---------------------------------------------------------------------------
+
+def _simulate_execution(workflow_def: dict, workflow_input: dict, task_mocks: dict) -> dict:
+    """Walk the workflow task list and apply mocks to produce a synthetic result."""
+    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+    synthetic_id = "mock-test-" + str(uuid.uuid4())[:8]
+    tasks_result = []
+    workflow_output = {}
+    status = "COMPLETED"
+
+    tasks = workflow_def.get("tasks", [])
+    elapsed = 0
+
+    for task in tasks:
+        ref_name = task.get("taskReferenceName", task.get("name", "unknown_ref"))
+        task_type = task.get("name", "unknown")
+        task_start = now_ms + elapsed
+        task_duration = 150 + (hash(ref_name) % 500)
+        task_end = task_start + task_duration
+        elapsed += task_duration + 50
+
+        mock_data = task_mocks.get(ref_name, {})
+        output_data = mock_data.get("outputData", {})
+
+        task_status = "COMPLETED"
+        reason = None
+        if "error" in output_data and isinstance(output_data.get("error"), str):
+            error_val = output_data["error"]
+            if any(x in error_val.upper() for x in ("ERROR", "404", "500", "FAIL")):
+                task_status = "FAILED"
+                reason = output_data.get("message", error_val)
+                status = "FAILED"
+
+        tasks_result.append(
+            {
+                "taskId": f"{synthetic_id}-{ref_name}",
+                "taskType": task_type,
+                "referenceTaskName": ref_name,
+                "status": task_status,
+                "startTime": task_start,
+                "endTime": task_end,
+                "outputData": output_data,
+                "inputData": task.get("inputParameters", {}),
+                "retryCount": 0,
+                "reasonForIncompletion": reason,
+                "workerId": "mock-worker-1",
+            }
+        )
+
+        if task_status == "FAILED":
+            break
+
+    out_params = workflow_def.get("outputParameters", {})
+    for k in out_params:
+        ref_outputs = {t["referenceTaskName"]: t["outputData"] for t in tasks_result}
+        for t_ref, t_out in ref_outputs.items():
+            for out_key, out_val in t_out.items():
+                workflow_output[f"{t_ref}.{out_key}"] = out_val
+
+    end_time = now_ms + elapsed
+
+    return {
+        "workflowId": synthetic_id,
+        "workflowType": workflow_def.get("name", "unknown"),
+        "version": workflow_def.get("version", 1),
+        "status": status,
+        "startTime": now_ms,
+        "endTime": end_time,
+        "input": workflow_input,
+        "output": workflow_output,
+        "tasks": tasks_result,
+        "mock": True,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
 
@@ -211,6 +291,16 @@ def run_test():
 
     try:
         client = ConductorClient()
+
+        if client._mock:
+            # SHOW_MOCK: simulate execution in-process from the workflow def.
+            defn = client.get_workflow_definition(workflow_name, version=version)
+            result = _simulate_execution(defn, workflow_input, task_mocks)
+            current_app.logger.info(
+                "test_harness run (mock): workflow=%s status=%s",
+                workflow_name, result.get("status"),
+            )
+            return jsonify(result)
 
         # POST to Conductor's workflow test endpoint.
         payload = {

@@ -47,7 +47,9 @@ class TestLiveWarningCalloutsCharacterization:
         """
         resp = client.get("/")
         html = resp.get_data(as_text=True)
-        count = html.count('class="live-warning"')
+        # Prefix match — the callouts ship as `class="live-warning d-none"`
+        # and are revealed by app.js when SHOW_MOCK is off.
+        count = html.count('class="live-warning')
         assert count == 4, (
             f"Expected 4 .live-warning callouts (Settings, Reconciler, "
             f"Migrations, Test Harness), found {count}. A destructive surface "

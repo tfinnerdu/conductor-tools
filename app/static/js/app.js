@@ -115,13 +115,38 @@ async function apiDelete(url) {
 }
 
 // ---------------------------------------------------------------------------
+// Mock/Live environment signal
+// ---------------------------------------------------------------------------
+
+// Populated from /api/v1/health/deep. mock === null means "not yet known".
+window.ConductorEnv = { mock: null };
+
+// Drives the MOCK chip, the production-safety banner, and the per-section
+// destructive-action warnings. Called once the readiness probe resolves
+// (see base.html).
+function applyConductorEnvSignals(isMock) {
+    window.ConductorEnv.mock = !!isMock;
+    const live = !isMock;
+
+    const mockChip = document.getElementById('mock-mode-chip');
+    const banner = document.getElementById('env-warning-banner');
+
+    if (mockChip) mockChip.classList.toggle('d-none', !isMock);
+    if (banner) banner.classList.toggle('d-none', !live);
+
+    document.querySelectorAll('.live-warning').forEach(function (el) {
+        el.classList.toggle('d-none', !live);
+    });
+}
+
+// ---------------------------------------------------------------------------
 // Confirmation guard
 // ---------------------------------------------------------------------------
 
-// Confirmation guard for any state-changing action. This console always acts
-// on a real Conductor, so every write/delete/retry/trigger routes through
-// here. The dialog names the action and its impact so it cannot be clicked
-// through on reflex. Returns true when the user confirms.
+// Confirmation guard for any state-changing action. The dialog names the
+// action and its impact so it cannot be clicked through on reflex. Returns
+// true when the user confirms. Used by every handler that writes, deletes,
+// retries, or triggers anything, in both SHOW_MOCK and real modes.
 function confirmAction(action, impact) {
     return confirm(
         '⚠ CONFIRM\n\n' +

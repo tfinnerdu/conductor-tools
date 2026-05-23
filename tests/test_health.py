@@ -205,16 +205,27 @@ class TestHealthDeepEndpoint:
         assert resp.status_code == 503
         assert resp.get_json()["status"] == "degraded"
 
-    def test_no_mock_key_in_deep_health(self, client):
-        """The app has no mock mode — deep health must not advertise a 'mock' key."""
-        with patch("app.routes.health.functional_checks", return_value={
-            "ok": True, "checks": {"db": {"ok": True, "latency_ms": 1, "detail": "connected"},
-                                   "conductor": {"ok": True, "latency_ms": 10, "detail": "reachable"}},
-        }):
-            resp = client.get("/api/v1/health/deep")
-        assert "mock" not in resp.get_json(), (
-            "There is no mock mode — deep health must not include a 'mock' key."
-        )
+    def test_mock_key_reflects_show_mock_off(self, client):
+        """With SHOW_MOCK unset, the deep-health 'mock' key is False."""
+        with patch.dict(os.environ, {"SHOW_MOCK": ""}):
+            with patch("app.routes.health.functional_checks", return_value={
+                "ok": True, "checks": {"db": {"ok": True, "latency_ms": 1, "detail": "connected"},
+                                       "conductor": {"ok": True, "latency_ms": 10, "detail": "reachable"}},
+            }):
+                resp = client.get("/api/v1/health/deep")
+        data = resp.get_json()
+        assert "mock" in data
+        assert data["mock"] is False, "SHOW_MOCK unset must report mock: false"
+
+    def test_mock_key_reflects_show_mock_on(self, client):
+        """With SHOW_MOCK=1, the deep-health 'mock' key is True."""
+        with patch.dict(os.environ, {"SHOW_MOCK": "1"}):
+            with patch("app.routes.health.functional_checks", return_value={
+                "ok": True, "checks": {"db": {"ok": True, "latency_ms": 1, "detail": "connected"},
+                                       "conductor": {"ok": True, "latency_ms": None, "detail": "mock_mode"}},
+            }):
+                resp = client.get("/api/v1/health/deep")
+        assert resp.get_json()["mock"] is True, "SHOW_MOCK=1 must report mock: true"
 
     def test_legacy_deep_path_redirects_308(self, client):
         """Bare /health/deep must 308-redirect (transition shim)."""

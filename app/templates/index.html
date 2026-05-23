@@ -187,7 +187,7 @@
                 <div class="console-card">
                     <div class="console-card-header">Test Configuration</div>
 
-                    <div class="live-warning">
+                    <div class="live-warning d-none">
                       In live mode &ldquo;Run Test&rdquo; calls Conductor's
                       workflow test endpoint. Any task reference left without a
                       mock falls through to a real worker &mdash; supply a mock
@@ -310,7 +310,7 @@
      ============================================================ -->
 <div id="panel-migrations" class="tab-panel">
 
-    <div class="live-warning">
+    <div class="live-warning d-none">
       &ldquo;Retry Failures&rdquo; re-runs every FAILED workflow execution in the
       batch against the live Conductor. Re-running a workflow re-triggers its
       task side effects &mdash; Salesforce upserts, Colleague writes, and
@@ -442,7 +442,7 @@
      ============================================================ -->
 <div id="panel-reconciler" class="tab-panel">
 
-    <div class="live-warning">
+    <div class="live-warning d-none">
       &ldquo;Retry All&rdquo; and &ldquo;Bulk Retry Selected&rdquo; re-run failed
       workflow executions against the live Conductor &mdash; up to 500 at once.
       Each retry re-triggers that workflow's real task side effects.
@@ -606,7 +606,7 @@
 <div id="panel-settings" class="tab-panel">
   <div class="console-card mb-2">
     <div class="console-card-header">Conductor Secrets</div>
-    <div class="live-warning">
+    <div class="live-warning d-none">
       Adding, updating, or deleting a secret here writes directly to the
       production Conductor secret store. Every workflow that references the
       secret picks up the change immediately &mdash; there is no undo.

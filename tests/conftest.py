@@ -43,6 +43,9 @@ def client(app):
 def _make_mock_conductor():
     """Build a MagicMock that mimics ConductorClient with realistic fixture data."""
     mock = MagicMock()
+    # Real-path branch by default — route handlers that branch on client._mock
+    # (only test_harness today) hit their live POST path under this fixture.
+    mock._mock = False
 
     now_ms = int(time.time() * 1000)
 

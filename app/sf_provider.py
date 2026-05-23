@@ -8,14 +8,17 @@ Target objects:
 Auth: OAuth2 username/password flow with a Connected App.
 # TODO(salesforce): confirm OAuth flow vs username/password for service account
 
-Requires live Salesforce credentials. There is no mock fallback — when
-Salesforce is not configured, or an API call fails, the error propagates to the
-caller so it surfaces in the UI rather than being masked by fixture data.
+By default this provider makes real Salesforce calls — if credentials are not
+configured, lookups raise RuntimeError. Setting SHOW_MOCK=1 in the environment
+flips every lookup to return realistic mock fixtures instead, for offline
+testing. SHOW_MOCK is an EXPLICIT, opt-in flag — never an error-recovery path.
 """
 import os
 import time
 
 import requests
+
+from app.utils.env import show_mock
 
 # Token cache — shared across requests, refreshed when within 5 min of expiry
 _token_cache: dict = {"token": None, "instance_url": None, "expires_at": 0.0}
@@ -35,16 +38,11 @@ def _require_configured() -> None:
     if not _configured():
         raise RuntimeError(
             "Salesforce is not configured — set SF_USERNAME, SF_PASSWORD, and "
-            "SF_SECURITY_TOKEN. This service has no mock fallback."
+            "SF_SECURITY_TOKEN, or enable SHOW_MOCK for fixture data."
         )
 
 
 def _get_instance_url() -> str:
-    """Return the Salesforce instance URL.
-
-    Prefers the cached value from the last OAuth response (so SF_INSTANCE_URL
-    is not required when using the username/password flow).
-    """
     if _token_cache["instance_url"]:
         return _token_cache["instance_url"]
     return os.environ.get("SF_INSTANCE_URL", "")
@@ -53,8 +51,6 @@ def _get_instance_url() -> str:
 def _get_access_token() -> str:
     """Return a valid bearer token, fetching a new one only when expired.
 
-    Uses the OAuth2 username/password flow with a Connected App
-    (SF_CLIENT_ID + SF_CLIENT_SECRET). Token is cached for 90 minutes.
     # TODO(salesforce): migrate to JWT bearer or client_credentials flow
     # when a service-account Connected App is provisioned at Doane.
     """
@@ -93,6 +89,8 @@ def _soql(query: str) -> dict:
 
 
 def find_person_by_sis_id(sis_id: str) -> dict:
+    if show_mock():
+        return _mock_sis_lookup(sis_id)
     _require_configured()
     soql = (
         f"SELECT Id, FirstName, LastName, SIS_ID__c, Ethos_Guid__c, PersonEmail "
@@ -103,6 +101,8 @@ def find_person_by_sis_id(sis_id: str) -> dict:
 
 
 def find_person_by_guid(guid: str) -> dict:
+    if show_mock():
+        return _mock_guid_lookup(guid)
     _require_configured()
     soql = (
         f"SELECT Id, FirstName, LastName, SIS_ID__c, Ethos_Guid__c, PersonEmail "
@@ -113,6 +113,8 @@ def find_person_by_guid(guid: str) -> dict:
 
 
 def find_duplicate_accounts(sis_id: str) -> list:
+    if show_mock():
+        return _mock_duplicate_lookup(sis_id)
     _require_configured()
     soql = (
         f"SELECT Id, FirstName, LastName, SIS_ID__c, CreatedDate "
@@ -124,6 +126,8 @@ def find_duplicate_accounts(sis_id: str) -> list:
 
 
 def get_account(sf_id: str) -> dict:
+    if show_mock():
+        return _mock_account(sf_id)
     _require_configured()
     instance_url = _get_instance_url()
     token = _get_access_token()
@@ -137,11 +141,7 @@ def get_account(sf_id: str) -> dict:
 
 
 def check_health() -> dict:
-    """Lightweight Salesforce API probe — read-only.
-
-    Returns a clear ``not_configured`` status when credentials are absent;
-    this is a health signal, not fabricated record data.
-    """
+    """Lightweight Salesforce API probe — read-only."""
     if not _configured():
         return {"ok": True, "detail": "not_configured", "latency_ms": None}
     t0 = time.time()
@@ -182,3 +182,49 @@ def _build_result(records: list) -> dict:
             status = "ok"
             diagnosis = "Record looks healthy"
     return {"records": records, "record_count": count, "status": status, "diagnosis": diagnosis}
+
+
+# ---------------------------------------------------------------------------
+# Mock fixtures — used only when SHOW_MOCK is enabled
+# ---------------------------------------------------------------------------
+
+def _mock_sis_lookup(sis_id: str) -> dict:
+    if "dup" in sis_id.lower():
+        records = [
+            {"Id": "SF001AAA", "FirstName": "Jane", "LastName": "Doe", "SIS_ID__c": sis_id,
+             "Ethos_Guid__c": f"mock-guid-{sis_id}-1", "PersonEmail": "jane.doe@doane.edu"},
+            {"Id": "SF002BBB", "FirstName": "Jane", "LastName": "Doe", "SIS_ID__c": sis_id,
+             "Ethos_Guid__c": f"mock-guid-{sis_id}-2", "PersonEmail": "jane.doe2@doane.edu"},
+        ]
+    elif "missing" in sis_id.lower():
+        records = [{"Id": "SF003CCC", "FirstName": "John", "LastName": "Smith",
+                    "SIS_ID__c": None, "Ethos_Guid__c": None, "PersonEmail": None}]
+    elif "notfound" in sis_id.lower() or "404" in sis_id:
+        records = []
+    else:
+        records = [{"Id": "SF" + sis_id[-6:].upper().replace("-", "0"), "FirstName": "Alex",
+                    "LastName": "Student", "SIS_ID__c": sis_id,
+                    "Ethos_Guid__c": f"mock-guid-{sis_id}", "PersonEmail": "alex.student@doane.edu",
+                    "RecordTypeId": "PersonAccount"}]
+    return _build_result(records)
+
+
+def _mock_guid_lookup(guid: str) -> dict:
+    if "notfound" in guid.lower():
+        records = []
+    else:
+        records = [{"Id": "SF" + guid[-6:].upper().replace("-", "0"), "FirstName": "Alex",
+                    "LastName": "Student", "SIS_ID__c": "STU" + guid[-6:].upper().replace("-", "0"),
+                    "Ethos_Guid__c": guid, "PersonEmail": "alex.student@doane.edu"}]
+    return _build_result(records)
+
+
+def _mock_duplicate_lookup(sis_id: str) -> list:
+    return _mock_sis_lookup(sis_id).get("records", [])
+
+
+def _mock_account(sf_id: str) -> dict:
+    return {"Id": sf_id, "FirstName": "Alex", "LastName": "Student",
+            "SIS_ID__c": "STU" + sf_id[-6:].upper(), "Ethos_Guid__c": f"mock-guid-{sf_id}",
+            "PersonEmail": "alex.student@doane.edu", "IsPersonAccount": True,
+            "RecordType": {"Name": "Person Account"}}
