@@ -275,13 +275,40 @@ paths:
         "400":
           $ref: "#/components/responses/ErrorEnvelope"
 
+  /api/v1/dob-repair/analyze/sql:
+    post:
+      tags: [dob-repair]
+      summary: Run the detector against a live SQL Server fetch (round 2 source)
+      description: >
+        Runs the single read-only SELECT/WITH statement currently in
+        DOB_RECONCILE_SQL_FILE against DOB_RECONCILE_DB_* and analyzes the
+        result directly — no CSV export step. The query text itself is not
+        accepted in the request; it is drafted and owned server-side.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                threshold:
+                  type: integer
+                  default: 6
+      responses:
+        "200":
+          description: Analysis summary (record and bucket counts)
+        "400":
+          $ref: "#/components/responses/ErrorEnvelope"
+        "502":
+          $ref: "#/components/responses/ErrorEnvelope"
+
   /api/v1/dob-repair/status:
     get:
       tags: [dob-repair]
-      summary: Whether an analysis has run and whether a configured input path exists
+      summary: Whether an analysis has run and which input sources are configured
       responses:
         "200":
-          description: Analysis status
+          description: Analysis status, including configuredInputPath and sqlConfigured flags
 
   /api/v1/dob-repair/candidates:
     get:

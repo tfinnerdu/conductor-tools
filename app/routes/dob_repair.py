@@ -27,6 +27,7 @@ from flask import Blueprint, Response, current_app, jsonify, request
 
 from app import db
 from app import dob_detector as detector
+from app import dob_sql_source
 from app.models.dob_decision import VALID_DECISIONS, DobDecision
 from app.utils.responses import error_response
 
@@ -104,9 +105,56 @@ def analyze():
     })
 
 
+@dob_repair_bp.post("/analyze/sql")
+def analyze_sql():
+    """Run the detector against DOB_RECONCILE_SQL_FILE, fetched live via SQL Server.
+
+    Body (optional JSON): {threshold}. The query itself is not accepted here —
+    it is drafted and owned by whoever configures DOB_RECONCILE_SQL_FILE on
+    the server; this endpoint only runs whatever is currently in that file.
+    """
+    body = request.get_json(silent=True) or {}
+    try:
+        threshold = int(body.get("threshold", detector.IDENTITY_THRESHOLD))
+    except (TypeError, ValueError):
+        return error_response("threshold must be an integer", "VALIDATION_ERROR")
+
+    if not dob_sql_source.is_configured():
+        return error_response(
+            "SQL fetch is not configured — set DOB_RECONCILE_SQL_FILE and "
+            "DOB_RECONCILE_DB_SERVER/DOB_RECONCILE_DB_NAME",
+            "NOT_CONFIGURED",
+        )
+
+    try:
+        records = dob_sql_source.fetch_records()
+    except ValueError as exc:
+        # Read-only guard rejected the configured query, or it's empty.
+        return error_response(str(exc), "UNSAFE_QUERY")
+    except RuntimeError as exc:
+        return error_response(str(exc), "NOT_CONFIGURED")
+    except Exception as exc:
+        current_app.logger.error("dob_repair analyze_sql error: %s", exc, exc_info=True)
+        return error_response(f"SQL fetch failed: {exc}", "SQL_ERROR", 502)
+
+    source = f"sql:{dob_sql_source.sql_file_path()}"
+    result = detector.analyze(records, identity_threshold=threshold)
+    _store_result(result, source, threshold)
+
+    current_app.logger.info(
+        "dob_repair analyze via SQL: rows=%d %s", len(records), result.summary
+    )
+    return jsonify({
+        "source": source,
+        "analyzedAt": _STATE["analyzed_at"],
+        "identityThreshold": threshold,
+        "summary": result.summary,
+    })
+
+
 @dob_repair_bp.get("/status")
 def status():
-    """Whether an analysis has run, and whether a server-side input path is configured."""
+    """Whether an analysis has run, and which server-side input sources are configured."""
     result = _STATE["result"]
     return jsonify({
         "analyzed": result is not None,
@@ -115,6 +163,7 @@ def status():
         "identityThreshold": _STATE["identity_threshold"],
         "summary": result.summary if result else None,
         "configuredInputPath": bool(_configured_input_path()),
+        "sqlConfigured": dob_sql_source.is_configured(),
     })
 
 

@@ -26,6 +26,7 @@
             const s = await apiGet('/api/v1/dob-repair/status');
             const statusEl = document.getElementById('dob-analyze-status');
             const reloadBtn = document.getElementById('dob-reload-configured-btn');
+            const sqlBtn = document.getElementById('dob-fetch-sql-btn');
 
             if (statusEl) {
                 statusEl.textContent = s.analyzed
@@ -33,6 +34,7 @@
                     : 'No analysis has been run yet.';
             }
             if (reloadBtn) reloadBtn.classList.toggle('d-none', !s.configuredInputPath);
+            if (sqlBtn) sqlBtn.classList.toggle('d-none', !s.sqlConfigured);
         } catch (err) {
             // Status is informational only — fail quietly, upload still works.
         }
@@ -75,6 +77,35 @@
             if (statusEl) statusEl.textContent = 'Analyze failed: ' + err.message;
         } finally {
             if (btn) { btn.disabled = false; btn.textContent = 'Analyze'; }
+        }
+    }
+
+    async function dobAnalyzeSql() {
+        const thresholdInput = document.getElementById('dob-threshold');
+        const btn = document.getElementById('dob-fetch-sql-btn');
+        const statusEl = document.getElementById('dob-analyze-status');
+
+        if (btn) { btn.disabled = true; btn.textContent = 'Fetching...'; }
+        if (statusEl) statusEl.innerHTML = '<span class="spinner"></span> Running configured SQL query...';
+
+        try {
+            const data = await apiPost('/api/v1/dob-repair/analyze/sql', {
+                threshold: parseInt((thresholdInput && thresholdInput.value) || '6', 10),
+            });
+
+            showToast(
+                'Analyzed ' + data.summary.total_records + ' records via SQL — ' +
+                data.summary.high + ' HIGH, ' + data.summary.medium + ' MEDIUM, ' +
+                data.summary.review + ' REVIEW',
+                'success'
+            );
+            await dobLoadStatus();
+            await dobLoadCandidates();
+        } catch (err) {
+            showToast('SQL fetch failed: ' + err.message, 'error');
+            if (statusEl) statusEl.textContent = 'SQL fetch failed: ' + err.message;
+        } finally {
+            if (btn) { btn.disabled = false; btn.textContent = 'Fetch via SQL & Analyze'; }
         }
     }
 
@@ -294,6 +325,9 @@
 
         const reloadBtn = document.getElementById('dob-reload-configured-btn');
         if (reloadBtn) reloadBtn.addEventListener('click', function () { dobAnalyze(true); });
+
+        const sqlBtn = document.getElementById('dob-fetch-sql-btn');
+        if (sqlBtn) sqlBtn.addEventListener('click', dobAnalyzeSql);
 
         const exportBtn = document.getElementById('dob-export-btn');
         if (exportBtn) exportBtn.addEventListener('click', dobExportCorrections);

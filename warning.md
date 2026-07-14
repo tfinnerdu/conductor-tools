@@ -147,6 +147,31 @@ in mock mode so the flow is exercised end-to-end.
   recommends — do not expose it on a shared/open internal surface. Use
   synthetic or already-redacted data for anything beyond a real review pass.
 
+### M3. DOB Repair SQL fetch source runs a file's SQL verbatim against production
+- **Where:** DOB Repair tab, "Fetch via SQL & Analyze" button.
+  `app/dob_sql_source.py`, configured via `DOB_RECONCILE_SQL_FILE` and
+  `DOB_RECONCILE_DB_*`.
+- **What happens:** on click, the app opens a live connection to the
+  configured SQL Server database and executes, verbatim, whatever statement
+  is currently in the `DOB_RECONCILE_SQL_FILE` file.
+- **Risk:** `validate_read_only()` rejects multiple statements and common
+  write keywords (`INSERT`/`UPDATE`/`DELETE`/`DROP`/`ALTER`/`EXEC`/`MERGE`/
+  `TRUNCATE`/`CREATE`/`GRANT`/`REVOKE`/`sp_*`/`INTO` — the last one because
+  T-SQL's `SELECT ... INTO` creates a table despite starting with `SELECT`),
+  but **this is a text-level
+  footgun-catcher, not a security boundary** — it can't stop every way SQL
+  could be crafted to do something unwanted, and it does nothing at all if
+  the configured DB credential itself has write permission.
+- **In-app safeguard:** the `validate_read_only()` keyword/statement-count
+  check described above; nothing beyond that.
+- **Before you test:** the real safety boundary is at the database, not the
+  app — grant `DOB_RECONCILE_DB_USER` a **SELECT-only** role on exactly the
+  views the query needs, nothing more. Review whatever is in
+  `DOB_RECONCILE_SQL_FILE` before pointing this at a production reporting
+  database, the same way you'd review any script with a live DB connection
+  string. This button also inherits M2's PII-display concern — restrict
+  access to the review team.
+
 ---
 
 ## LOW — configuration footguns

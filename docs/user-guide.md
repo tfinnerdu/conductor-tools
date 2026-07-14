@@ -361,6 +361,7 @@ Export PERSON data from any source you have — an ODS/Colleague reporting view,
 
 - Choose the CSV file and click **Analyze**. Nothing is written to disk server-side beyond the in-memory analysis result for this session.
 - If your environment sets `DOB_RECONCILE_INPUT_CSV` to a server-side path (e.g. one a nightly export job refreshes), a **Reload from configured export** button appears so you can re-run the detector against that path without re-uploading.
+- If your environment is configured for the SQL fetch source (see "DOB Repair — SQL Fetch Source" under Integrations Reference below), a **Fetch via SQL & Analyze** button appears. It runs a single, server-administered SELECT query live against your reporting database and analyzes the result directly — no CSV export step at all.
 - **Identity Match Threshold** (default 6) — how strongly two records must resemble the same person before they are compared for a one-day DOB gap. Raise it to tighten matching; lower it to widen.
 
 ### Summary
@@ -525,6 +526,32 @@ DOB_RECONCILE_INPUT_CSV=
 ```
 
 Optional. Path to a PERSON export CSV that a nightly job refreshes on the server running Conductor Companion. When set, the DOB Repair tab shows a **Reload from configured export** button. Leave unset to rely entirely on browser upload — no server-side file path is required.
+
+### DOB Repair — SQL Fetch Source
+
+Optional. A third DOB Repair data source, alongside CSV upload and the configured-path reload above: a live SQL Server query, run on demand, instead of an export file.
+
+```
+DOB_RECONCILE_SQL_FILE=
+DOB_RECONCILE_DB_SERVER=
+DOB_RECONCILE_DB_NAME=
+DOB_RECONCILE_DB_USER=
+DOB_RECONCILE_DB_PASSWORD=
+DOB_RECONCILE_DB_DRIVER=ODBC Driver 17 for SQL Server
+DOB_RECONCILE_DB_ENCRYPT=yes
+DOB_RECONCILE_DB_TRUST_SERVER_CERT=yes
+```
+
+- **`DOB_RECONCILE_SQL_FILE`** — path to a `.sql` file you draft and own on the server. It must contain exactly one **SELECT** (or `WITH ... SELECT`) statement — `app/dob_sql_source.py` rejects anything else (multiple statements, or any of `INSERT/UPDATE/DELETE/DROP/ALTER/EXEC/MERGE/TRUNCATE/CREATE/GRANT/REVOKE/INTO` — the last one because T-SQL's `SELECT ... INTO` creates a table) before it ever runs. See `docs/dob_reconcile_query.example.sql` for a starting template and the exact output-column aliases required (`person_id, last_name, first_name, middle_name, birth_date, addr_line1, city, state, zip, email, phone, origin, created_date` — the same shape as the CSV path).
+- **`DOB_RECONCILE_DB_SERVER`** / **`DOB_RECONCILE_DB_NAME`** — the SQL Server host and database (your Colleague reporting view / ODS mirror, not the Conductor Companion app database).
+- **`DOB_RECONCILE_DB_USER`** / **`DOB_RECONCILE_DB_PASSWORD`** — SQL authentication credentials. Leave both blank to fall back to a trusted (Windows-integrated) connection instead.
+- **`DOB_RECONCILE_DB_DRIVER`** — the installed ODBC driver name (default `ODBC Driver 17 for SQL Server`).
+- **`DOB_RECONCILE_DB_ENCRYPT`** / **`DOB_RECONCILE_DB_TRUST_SERVER_CERT`** — default to `yes`/`yes`, which works against a typical internal SQL Server with a self-signed certificate. Set `DOB_RECONCILE_DB_TRUST_SERVER_CERT=no` if your server presents a certificate from a trusted CA.
+
+**Two things worth being deliberate about before turning this on:**
+
+1. **This is a read-only, footgun-guarded query runner, not a security boundary.** The text-level check in `dob_sql_source.py` catches an accidental or careless write statement, but it is not a substitute for database permissions. Grant `DOB_RECONCILE_DB_USER` a **SELECT-only** role on whatever views the query touches — that grant is the actual safety boundary. See `warning.md`.
+2. **`pyodbc` needs a system ODBC driver, not just the Python package.** `pip install -r requirements.txt` installs the `pyodbc` Python package, but running an actual query also requires Microsoft's "ODBC Driver 17/18 for SQL Server" installed on the host (plus `unixODBC` if you're on Linux). Every other DOB Repair path — CSV upload, the configured-file reload — works fine without any of this installed; the **Fetch via SQL & Analyze** button simply won't appear until `DOB_RECONCILE_SQL_FILE` and the two `DOB_RECONCILE_DB_*` vars above are set.
 
 ### Digest Notifications
 

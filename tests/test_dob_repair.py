@@ -1,9 +1,11 @@
 """Tests for DOB Repair routes — /api/v1/dob-repair/*"""
 import io
 import os
+from datetime import date
 
 import pytest
 
+from app import dob_detector as detector
 from app.routes import dob_repair as dob_repair_routes
 
 FIXTURE = os.path.join(os.path.dirname(__file__), "fixtures", "dob_sample_persons.csv")
@@ -223,3 +225,100 @@ class TestExportCorrections:
         csv_text = resp.data.decode("utf-8")
         lines = [l for l in csv_text.strip().splitlines() if l]
         assert len(lines) == 1  # header only
+
+
+def _make_record(**kw):
+    base = dict(
+        person_id="x", last_name="", first_name="", middle_name="",
+        birth_date=None, addr_line1="", city="", state="", zip="",
+        email="", phone="", origin="", created_date="",
+    )
+    base.update(kw)
+    return detector.Record(**base)
+
+
+class TestStatusSqlConfigured:
+    def test_false_when_sql_not_configured(self, client, monkeypatch):
+        monkeypatch.setattr(dob_repair_routes.dob_sql_source, "is_configured", lambda: False)
+        resp = client.get("/api/v1/dob-repair/status")
+        assert resp.get_json()["sqlConfigured"] is False
+
+    def test_true_when_sql_configured(self, client, monkeypatch):
+        monkeypatch.setattr(dob_repair_routes.dob_sql_source, "is_configured", lambda: True)
+        resp = client.get("/api/v1/dob-repair/status")
+        assert resp.get_json()["sqlConfigured"] is True
+
+
+class TestAnalyzeSql:
+    def test_not_configured_returns_400(self, client, monkeypatch):
+        monkeypatch.setattr(dob_repair_routes.dob_sql_source, "is_configured", lambda: False)
+        resp = client.post("/api/v1/dob-repair/analyze/sql", json={})
+        assert resp.status_code == 400
+        assert resp.get_json()["code"] == "NOT_CONFIGURED"
+
+    def test_successful_fetch_analyzes_records(self, client, monkeypatch):
+        monkeypatch.setattr(dob_repair_routes.dob_sql_source, "is_configured", lambda: True)
+        monkeypatch.setattr(dob_repair_routes.dob_sql_source, "sql_file_path", lambda: "/srv/dob_query.sql")
+
+        records = [
+            _make_record(person_id="1001", last_name="Smith", first_name="John",
+                         birth_date=date(1980, 4, 2), zip="23220", addr_line1="120 Elm St",
+                         email="j@x.com", phone="8045551212", origin="INSTANT_ENROLL"),
+            _make_record(person_id="1002", last_name="Smith", first_name="John",
+                         birth_date=date(1980, 4, 3), zip="23220", addr_line1="120 Elm St",
+                         email="j@x.com", phone="8045551212", origin="APP_IMPORT"),
+        ]
+        monkeypatch.setattr(dob_repair_routes.dob_sql_source, "fetch_records", lambda: records)
+
+        resp = client.post("/api/v1/dob-repair/analyze/sql", json={"threshold": 6})
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["source"] == "sql:/srv/dob_query.sql"
+        assert data["summary"]["high"] == 1
+
+        # And it's queryable the same way as a CSV-sourced analysis.
+        cand_resp = client.get("/api/v1/dob-repair/candidates")
+        ids = {c["candidate_id"] for c in cand_resp.get_json()["candidates"]}
+        assert "1001__1002" in ids
+
+    def test_unsafe_query_returns_400(self, client, monkeypatch):
+        monkeypatch.setattr(dob_repair_routes.dob_sql_source, "is_configured", lambda: True)
+
+        def _raise_unsafe():
+            raise ValueError("DOB_RECONCILE_SQL_FILE contains a disallowed keyword")
+
+        monkeypatch.setattr(dob_repair_routes.dob_sql_source, "fetch_records", lambda: _raise_unsafe())
+        resp = client.post("/api/v1/dob-repair/analyze/sql", json={})
+        assert resp.status_code == 400
+        assert resp.get_json()["code"] == "UNSAFE_QUERY"
+
+    def test_missing_pyodbc_dependency_returns_not_configured(self, client, monkeypatch):
+        # fetch_records() raises RuntimeError specifically when pyodbc (or its
+        # system ODBC driver) isn't available — a configuration gap, not a
+        # transient failure, so it maps to NOT_CONFIGURED rather than SQL_ERROR.
+        monkeypatch.setattr(dob_repair_routes.dob_sql_source, "is_configured", lambda: True)
+
+        def _raise_runtime_error():
+            raise RuntimeError("pyodbc is not installed")
+
+        monkeypatch.setattr(dob_repair_routes.dob_sql_source, "fetch_records", lambda: _raise_runtime_error())
+        resp = client.post("/api/v1/dob-repair/analyze/sql", json={})
+        assert resp.status_code == 400
+        assert resp.get_json()["code"] == "NOT_CONFIGURED"
+
+    def test_db_connectivity_error_returns_502(self, client, monkeypatch):
+        monkeypatch.setattr(dob_repair_routes.dob_sql_source, "is_configured", lambda: True)
+
+        def _raise_db_error():
+            raise Exception("could not connect to sqlserver.doane.edu")
+
+        monkeypatch.setattr(dob_repair_routes.dob_sql_source, "fetch_records", lambda: _raise_db_error())
+        resp = client.post("/api/v1/dob-repair/analyze/sql", json={})
+        assert resp.status_code == 502
+        assert resp.get_json()["code"] == "SQL_ERROR"
+
+    def test_invalid_threshold_returns_400(self, client, monkeypatch):
+        monkeypatch.setattr(dob_repair_routes.dob_sql_source, "is_configured", lambda: True)
+        resp = client.post("/api/v1/dob-repair/analyze/sql", json={"threshold": "not-a-number"})
+        assert resp.status_code == 400
+        assert resp.get_json()["code"] == "VALIDATION_ERROR"
