@@ -5,7 +5,8 @@ info:
     Operator console for Orkes Conductor workflow orchestration at Doane University.
     Provides search, diff, reconciler, batch migration tracking, JQ Lab,
     secret management, worker status, test harness, Ethos integration,
-    Salesforce console, correlation tracer, and daily digest capabilities.
+    Salesforce console, correlation tracer, daily digest, and DOB Repair
+    (PD0002124 timezone-shift review queue) capabilities.
   version: "1.0.0"
   contact:
     name: Doane University Platform Team
@@ -32,6 +33,10 @@ tags:
     description: Conductor secret management
   - name: reconciler
     description: Error reconciler and bulk retry
+  - name: dob-repair
+    description: >
+      PD0002124 DOB timezone-shift detection and human-gated review queue.
+      Export-only — never writes to Colleague.
   - name: tracer
     description: End-to-end correlation tracer
   - name: test-harness
@@ -243,6 +248,94 @@ paths:
       responses:
         "200":
           description: Failure groups with error codes and workflow IDs
+
+  /api/v1/dob-repair/analyze:
+    post:
+      tags: [dob-repair]
+      summary: Run the DOB shift detector against a PERSON export
+      description: >
+        Multipart form upload. `csv_file` is optional — if omitted, falls
+        back to the server-configured DOB_RECONCILE_INPUT_CSV path.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                csv_file:
+                  type: string
+                  format: binary
+                threshold:
+                  type: integer
+                  default: 6
+      responses:
+        "200":
+          description: Analysis summary (record and bucket counts)
+        "400":
+          $ref: "#/components/responses/ErrorEnvelope"
+
+  /api/v1/dob-repair/status:
+    get:
+      tags: [dob-repair]
+      summary: Whether an analysis has run and whether a configured input path exists
+      responses:
+        "200":
+          description: Analysis status
+
+  /api/v1/dob-repair/candidates:
+    get:
+      tags: [dob-repair]
+      summary: Candidate review queue, elevated-risk worklist, and unparseable DOBs
+      responses:
+        "200":
+          description: Candidates joined with any existing reviewer decision
+        "404":
+          $ref: "#/components/responses/ErrorEnvelope"
+
+  /api/v1/dob-repair/decision:
+    post:
+      tags: [dob-repair]
+      summary: Record a reviewer decision (accept/reject/defer) for one candidate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [candidate_id, action]
+              properties:
+                candidate_id:
+                  type: string
+                action:
+                  type: string
+                  enum: [accept, reject, defer]
+                true_dob:
+                  type: string
+                  format: date
+                  description: Required for action=accept; must match one side of the pair.
+                reviewer:
+                  type: string
+                note:
+                  type: string
+      responses:
+        "200":
+          description: Recorded decision
+        "400":
+          $ref: "#/components/responses/ErrorEnvelope"
+        "404":
+          $ref: "#/components/responses/ErrorEnvelope"
+
+  /api/v1/dob-repair/export/corrections:
+    get:
+      tags: [dob-repair]
+      summary: CSV of approved corrections for a sanctioned apply step
+      description: >
+        Export only. Applying the correction to Colleague happens outside
+        Conductor Companion, through an audited Ethos PUT or manual NAE edit.
+      responses:
+        "200":
+          description: CSV file (person_id, current_dob, corrected_dob, decided_by, decided_at, candidate_id, note)
 
   /api/v1/tracer/person:
     post:

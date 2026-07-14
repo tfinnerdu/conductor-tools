@@ -1,0 +1,15 @@
+person_id,last_name,first_name,middle_name,birth_date,addr_line1,city,state,zip,email,phone,origin,created_date
+1001,Smith,John,A,4/2/1980,120 Elm St,Richmond,VA,23220,jsmith@example.com,8045551212,INSTANT_ENROLL,2025-03-14
+1002,Smith,John,A,4/3/1980,120 Elm St,Richmond,VA,23220,jsmith@example.com,8045551212,APP_IMPORT,2024-11-01
+2001,Jones,Mary,,6/15/1990,88 Oak Ave,Crete,NE,68333,mjones@example.com,4025559090,INSTANT_ENROLL,2025-02-10
+2002,Jones,Mary,,6/15/1990,88 Oak Ave,Crete,NE,68333,mjones@example.com,4025559090,APP_IMPORT,2024-10-05
+3001,King,Robert,L,12/31/1975,45 Pine Rd,Atlanta,GA,30301,rking@example.com,4045553434,INSTANT_ENROLL,2025-01-20
+3002,King,Robert,L,1/1/1976,45 Pine Rd,Atlanta,GA,30301,rking@example.com,4045553434,APP_IMPORT,2024-09-15
+4001,Park,Susan,,7/20/1985,300 Main St,Columbus,OH,43004,spark@example.com,6145557878,INSTANT_ENROLL,2025-04-01
+5001,Lee,Tom,,3/11/1992,17 Birch Ln,Omaha,NE,68102,tlee@example.com,4025556161,INSTANT_ENROLL,2025-03-22
+5002,Lee,Tom,,3/10/1992,17 Birch Ln,Omaha,NE,68102,tlee@example.com,4025556161,APP_IMPORT,2024-12-01
+6001,Diaz,Carla,,8/9/1998,900 Cedar Ct,Lincoln,NE,68508,cdiaz@example.com,4025552323,,2025-05-02
+6002,Diaz,Carla,,8/10/1998,900 Cedar Ct,Lincoln,NE,68508,cdiaz@example.com,4025552323,,2025-05-02
+7001,Nolan,James,,5/5/1991,1 First Ave,Boston,MA,02108,jnolan1@example.com,6175551111,INSTANT_ENROLL,2025-03-01
+7002,Nolan,James,,5/6/1991,77 River St,Dallas,TX,75201,jnolan2@example.com,2145552222,APP_IMPORT,2024-08-01
+8001,Ford,Amy,,2/28/2001,55 Lake Dr,Miami,FL,33101,aford@example.com,3055554545,INSTANT_ENROLL,2025-03-30

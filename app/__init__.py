@@ -79,6 +79,7 @@ def create_app(config_override=None):
     from app.routes.digest import digest_bp
     from app.routes.ethos import ethos_bp
     from app.routes.sf_console import sf_console_bp
+    from app.routes.dob_repair import dob_repair_bp
 
     app.register_blueprint(health_bp)
     app.register_blueprint(search_bp)
@@ -93,6 +94,7 @@ def create_app(config_override=None):
     app.register_blueprint(digest_bp)
     app.register_blueprint(ethos_bp)
     app.register_blueprint(sf_console_bp)
+    app.register_blueprint(dob_repair_bp)
 
     # Register main UI route
     from app.routes import main_bp

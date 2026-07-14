@@ -624,4 +624,128 @@
   </div>
 </div><!-- /panel-settings -->
 
+
+<!-- ============================================================
+     DOB REPAIR TAB
+     ============================================================ -->
+<div id="panel-dob-repair" class="tab-panel">
+
+    <div class="console-card mb-2" style="background:#eef6ff;color:#1F3864;border:1px solid #b8d4f5">
+        <strong>PD0002124 &mdash; Instant Enrollment DOB timezone shift.</strong>
+        This tab only proposes corrections and exports them for a sanctioned
+        Ethos/NAE apply step outside Conductor Companion &mdash; it never writes
+        to Colleague. It also displays applicant name/DOB/address/email/phone;
+        see <code>warning.md</code> before opening access beyond the review team.
+    </div>
+
+    <div class="grid-2" style="align-items:start">
+
+        <!-- Load export -->
+        <div>
+            <div class="console-card">
+                <div class="console-card-header">Load PERSON Export</div>
+
+                <div class="form-group">
+                    <label class="form-label">PERSON export CSV</label>
+                    <input type="file" id="dob-csv-file" class="form-control" accept=".csv" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Identity Match Threshold</label>
+                    <input type="number" id="dob-threshold" class="form-control" value="6" min="1"
+                        style="max-width:120px" />
+                </div>
+
+                <div class="toolbar">
+                    <button id="dob-analyze-btn" class="btn btn-primary">Analyze</button>
+                    <button id="dob-reload-configured-btn" class="btn btn-outline d-none">
+                        Reload from configured export
+                    </button>
+                </div>
+
+                <div id="dob-analyze-status" class="font-sm text-muted">No analysis has been run yet.</div>
+            </div>
+        </div>
+
+        <!-- Summary -->
+        <div>
+            <div class="console-card">
+                <div class="console-card-header">Summary</div>
+                <div id="dob-summary-tiles">
+                    <p class="text-muted font-sm">Run an analysis to see results.</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Review queue -->
+    <div class="console-card">
+        <div class="console-card-header">
+            Review Queue
+            <button id="dob-export-btn" class="btn btn-outline btn-sm ms-auto">Export Corrections CSV</button>
+        </div>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Bucket</th>
+                        <th>Name</th>
+                        <th>Earlier DOB (origin)</th>
+                        <th>Later DOB (origin)</th>
+                        <th>Score</th>
+                        <th>Rationale</th>
+                        <th>Decision</th>
+                    </tr>
+                </thead>
+                <tbody id="dob-candidates-tbody">
+                    <tr>
+                        <td colspan="7" class="text-center text-muted" style="padding:2rem">
+                            Upload a PERSON export and click Analyze.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Elevated risk -->
+    <div class="console-card">
+        <div class="console-card-header">
+            Elevated Risk Worklist
+            <span id="dob-elevated-count" class="text-muted ms-auto"></span>
+            <button id="dob-elevated-toggle-btn" class="btn btn-outline btn-sm">Show</button>
+        </div>
+        <div id="dob-elevated-content" class="d-none">
+            <p class="text-muted font-sm">
+                Unpaired Instant-Enroll records with an address in an Eastern-time
+                state. This is a risk-ranked worklist, not proof of corruption &mdash;
+                it tells you where to look, not what to change.
+            </p>
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr><th>Person ID</th><th>Name</th><th>DOB</th><th>State</th></tr>
+                    </thead>
+                    <tbody id="dob-elevated-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Unparseable DOB -->
+    <div id="dob-unparseable-card" class="console-card d-none">
+        <div class="console-card-header">Unparseable Date of Birth</div>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr><th>Person ID</th><th>Name</th><th>Raw DOB value</th></tr>
+                </thead>
+                <tbody id="dob-unparseable-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+
+</div><!-- /panel-dob-repair -->
+
 {% endblock %}

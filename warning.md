@@ -127,6 +127,26 @@ in mock mode so the flow is exercised end-to-end.
 - **Before you test:** only feed known-good identifiers. Recommended fix:
   parameterize / escape SOQL inputs.
 
+### M2. DOB Repair tab displays applicant PII
+- **Where:** DOB Repair tab. `app/routes/dob_repair.py`, `app/dob_detector.py`.
+  Detects PD0002124 (Instant Enrollment DOB timezone shift) and renders a
+  review queue.
+- **What happens:** the tab displays name, date of birth, mailing address,
+  email, and phone for every candidate and elevated-risk record in whatever
+  PERSON export is analyzed. This is display only — the tab never writes to
+  Colleague, Ethos, or NAE; it only persists reviewer decisions in Conductor
+  Companion's own database and exports an approved-corrections CSV for a
+  separate, sanctioned apply step.
+- **Risk:** unlike every other tab, the risk here is not a live mutation —
+  it's exposure. Anyone with access to Conductor Companion can see applicant
+  identity data for whatever export is currently loaded.
+- **In-app safeguard:** none beyond whatever access control fronts Conductor
+  Companion itself (this app has no per-tab auth).
+- **Before you test:** restrict who can reach this tab to the actual DOB
+  review team, the same way the original standalone tool's deployment guide
+  recommends — do not expose it on a shared/open internal surface. Use
+  synthetic or already-redacted data for anything beyond a real review pass.
+
 ---
 
 ## LOW — configuration footguns

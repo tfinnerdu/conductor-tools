@@ -8,7 +8,7 @@ Conductor Companion is a web tool built for the Doane platform team that extends
 
 Open your browser and navigate to `http://localhost:5007` (or the network URL printed in the hub console when the app starts).
 
-The orange Doane top bar shows the app name and current version number. Below it, the navy navigation bar has nine tabs. Click any tab to switch to it. The app does not reload between tabs — everything runs in the same page.
+The orange Doane top bar shows the app name and current version number. Below it, the navy navigation bar has ten tabs. Click any tab to switch to it. The app does not reload between tabs — everything runs in the same page.
 
 **Connecting to Conductor:** Set `CONDUCTOR_URL` to your Conductor instance. By default the app makes real calls; if Conductor is unreachable a tab shows an error rather than fabricated data. See the next section for the opt-in mock mode.
 
@@ -349,6 +349,56 @@ Detail includes: failed task type, exact failure reason, extracted error code (e
 
 ---
 
+## DOB Repair Tab
+
+**What it does:** Detect and human-review PD0002124 — the Colleague Self-Service Instant Enrollment defect that stores a registrant's Date of Birth one day early when their browser timezone is east of the Central-time server. This tab finds likely-shifted PERSON records from a data export and proposes corrections. **It never writes to Colleague, Ethos, or NAE.** A reviewer accepts, rejects, or defers each candidate, and the tab exports an approved-corrections CSV that you apply through your own sanctioned write channel (an audited Ethos PUT, or manual NAE correction).
+
+This tab displays applicant PII — name, date of birth, address, email, phone — so restrict access to the review team, not the general Conductor Companion user base. See `warning.md`.
+
+### Load PERSON Export
+
+Export PERSON data from any source you have — an ODS/Colleague reporting view, an Informer report, or an Ethos-to-CSV export. Minimum useful columns: person id, last/first name, date of birth, and an origin field marking Instant Enrollment records (`INSTANT_ENROLL`, `INSTANT ENROLLMENT`, `IE`, or `SS_IE`). Address, email, and phone improve identity matching.
+
+- Choose the CSV file and click **Analyze**. Nothing is written to disk server-side beyond the in-memory analysis result for this session.
+- If your environment sets `DOB_RECONCILE_INPUT_CSV` to a server-side path (e.g. one a nightly export job refreshes), a **Reload from configured export** button appears so you can re-run the detector against that path without re-uploading.
+- **Identity Match Threshold** (default 6) — how strongly two records must resemble the same person before they are compared for a one-day DOB gap. Raise it to tighten matching; lower it to widen.
+
+### Summary
+
+Six tiles: total records scanned, and counts for HIGH, MEDIUM, REVIEW, Elevated Risk, and Unparseable DOB (see below).
+
+### Review Queue
+
+Every candidate is a pair of records whose DOBs are exactly one calendar day apart, sorted worst-first:
+
+| Bucket | Meaning |
+|---|---|
+| **HIGH** | The Instant-Enroll record is exactly one day *before* an authoritative (non-IE) twin — the classic bug signature. The later date is proposed as the true DOB. |
+| **MEDIUM** | Same one-day gap, but origin doesn't cleanly separate corrupted from authoritative. Later date is a tentative guess only — confirm before accepting. |
+| **REVIEW** | The Instant-Enroll record is the *later* one — the wrong direction for this bug, so it's more likely a typo or two different people. No date is pre-selected. |
+
+For each row, pick which date is true (pre-selected to the later date for HIGH and MEDIUM), then:
+
+- **Accept** — after a confirmation dialog, records which person_id needs its DOB corrected and to what value. Added to the corrections export.
+- **Reject** — this pair is not a real correction (e.g. two different people, or a genuine typo unrelated to the timezone bug).
+- **Defer** — no decision yet; revisit later.
+
+Decisions persist across re-analysis: uploading a fresh export re-runs the detector, but a decision already made for the same pair of person IDs is preserved.
+
+### Elevated Risk Worklist
+
+Unpaired Instant-Enroll records with a DOB whose address is in an Eastern-time state — no authoritative twin exists to confirm the shift from data alone. This is a **risk-ranked worklist, not proof of corruption**: it tells you where to look (e.g. against a FAFSA or transcript DOB), not what to change. Never correct this list wholesale.
+
+### Unparseable Date of Birth
+
+Records whose DOB value couldn't be parsed by any recognized date format. Worth a quick manual look, but excluded from detection.
+
+### Export Corrections CSV
+
+Downloads every **accepted** decision as `dob_corrections.csv` with columns: `person_id, current_dob, corrected_dob, decided_by, decided_at, candidate_id, note`. This file is the hand-off point to a separate, deliberate write step — it is not applied automatically by Conductor Companion.
+
+---
+
 ## Traces Tab
 
 **What it does:** Follow a person's data through Conductor, Salesforce, and Ethos by searching with a Doane GUID or SIS_ID.
@@ -467,6 +517,14 @@ ETHOS_API_KEY=
 ```
 
 Ethos events are held in an in-memory buffer and matched against person identifiers during a trace.
+
+### DOB Repair
+
+```
+DOB_RECONCILE_INPUT_CSV=
+```
+
+Optional. Path to a PERSON export CSV that a nightly job refreshes on the server running Conductor Companion. When set, the DOB Repair tab shows a **Reload from configured export** button. Leave unset to rely entirely on browser upload — no server-side file path is required.
 
 ### Digest Notifications
 
